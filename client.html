@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <title>pillar - Client</title>
+  </head>
+  <body class="client-page">
+    <div class="container">
+      <a href="index.html" class="brand">pillar</a>
+      
+      <div class="main-content">
+        <h1 class="page-title">Join Session</h1>
+        
+        <div class="join-section">
+          <div class="input-group">
+            <label for="joinKeyInput" class="input-label">Enter Join Key</label>
+            <input 
+              type="text" 
+              id="joinKeyInput" 
+              class="input-field" 
+              placeholder="Enter the join key from your coach"
+              autocomplete="off"
+            />
+            <div class="input-glow"></div>
+          </div>
+          
+          <button id="joinButton" class="btn btn-primary">
+            <span class="btn-text">Join Session</span>
+            <span class="btn-glow"></span>
+          </button>
+        </div>
+
+        <div class="session-section hidden" id="sessionSection">
+          <div class="video-container client-video-container">
+            <div class="video-wrapper client-video-wrapper">
+              <video id="localVideo" autoplay playsinline></video>
+              <div class="client-exercise-display">
+                <div class="client-exercise-label">Exercise</div>
+                <div id="clientExerciseName" class="client-exercise-name">Waiting for coach...</div>
+              </div>
+              <div class="client-rep-counter">
+                <div class="client-rep-label">Reps</div>
+                <div id="clientRepCount" class="client-rep-count">0</div>
+              </div>
+              <div class="client-summary-panel hidden" id="clientSummaryPanel">
+                <div class="summary-header">
+                  <h3 class="summary-title">Set Summary</h3>
+                  <button id="closeSummaryButton" class="summary-close-btn">×</button>
+                </div>
+                <div id="summaryContent" class="summary-content">
+                  <p class="no-summary-message">No feedback yet</p>
+                </div>
+              </div>
+              <div class="client-set-notification hidden" id="clientSetNotification">
+                <div class="notification-content">
+                  <div class="notification-icon" id="notificationIcon">🎯</div>
+                  <div class="notification-text" id="notificationText"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="controls-section">
+          <button id="hangupButton" class="btn btn-secondary hidden">
+            <span class="btn-text">Leave Session</span>
+          </button>
+        </div>
+
+        <div id="statusMessage" class="status-message"></div>
+      </div>
+    </div>
+
+    <script type="module" src="/client.js"></script>
+  </body>
+</html>
+
