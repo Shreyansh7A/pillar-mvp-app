@@ -160,7 +160,7 @@ joinButton.onclick = async () => {
           
           const data = change.doc.data();
           if (data.message) {
-            console.log('📨 Received feedback message:', data.message);
+            console.log('Received feedback message:', data.message);
             // Small delay to ensure everything is ready
             setTimeout(() => {
               speakFeedback(data.message);
@@ -422,11 +422,11 @@ function createAndSpeak(message, voices) {
     };
     
     utterance.onstart = () => {
-      console.log('✅ Speech started:', message);
+      console.log('Speech started:', message);
     };
     
     utterance.onend = () => {
-      console.log('✅ Speech completed:', message);
+      console.log('Speech completed:', message);
     };
     
     utterance.onpause = () => {
@@ -441,7 +441,7 @@ function createAndSpeak(message, voices) {
     window.speechSynthesis.speak(utterance);
     
     // Log for debugging
-    console.log('🔊 Attempting to speak:', message);
+    console.log('Attempting to speak:', message);
     console.log('   Voices available:', voices?.length || 0);
     console.log('   Currently speaking:', window.speechSynthesis.speaking);
     console.log('   Pending:', window.speechSynthesis.pending);
@@ -542,11 +542,11 @@ function handleSetStatusChange(status, timestamp, summary) {
   }
   
   if (status === 'started') {
-    showSetNotification('Set Started!', '🎯', 'start');
+    showSetNotification('Set Started!', '', 'start');
     // Voice announcement
     speakFeedback('Set started. Begin your exercise.');
   } else if (status === 'ended') {
-    showSetNotification('Set Ended!', '✅', 'end');
+    showSetNotification('Set Ended!', '', 'end');
     // Voice announcement
     speakFeedback('Set ended. Great work!');
   }
