@@ -37,60 +37,102 @@ let feedbackCollection = null;
 let repCount = 0;
 let isSetActive = false;
 let feedbackQueue = [];
+let sessionDoc = null; // Session document in 'sessions' collection
+let exerciseSetsCollection = null; // Subcollection for exercise sets
+let setStartTime = null; // Timestamp when current set started
 
 // Exercise-specific feedback
 const exerciseFeedback = {
-  'shoulder-press': [
-    'Keep your core tight',
-    'Press straight up, not forward',
-    'Control the descent',
-    'Full range of motion',
-    'Keep your back straight',
-    'Engage your shoulders',
-    'Breathe out on the press',
-    'Keep your elbows in line'
-  ],
-  'bench-press': [
-    'Keep your back flat on the bench',
-    'Control the bar on the way down',
-    'Drive through your feet',
-    'Full range of motion',
-    'Keep your shoulders back',
-    'Breathe out on the press',
-    'Keep your wrists straight',
-    'Engage your core'
-  ],
-  'deadlift': [
-    'Keep your back straight',
-    'Chest up, shoulders back',
-    'Focus on the hip hinge',
-    'Keep the bar close to your body',
-    'Drive through your heels',
-    'Slow down, control the movement',
-    'Engage your core',
-    'Full extension at the top'
-  ],
-  'squats': [
-    'Keep your knees behind your toes',
-    'Chest up, back straight',
-    'Go down to parallel or below',
-    'Drive through your heels',
-    'Keep your core engaged',
-    'Control the descent',
-    'Full range of motion',
-    'Keep your weight balanced'
-  ]
+  'shoulder-press': {
+    'Performance': [
+      'Press straight up, not forward',
+      'Control the descent',
+      'Full range of motion',
+      'Engage your shoulders',
+      'Keep your elbows in line'
+    ],
+    'Safety': [
+      'Keep your back straight',
+      'Keep your core tight'
+    ],
+    'Motivation': [
+      'Breathe out on the press',
+      'Great form!',
+      'Keep it up!',
+      'You got this!'
+    ]
+  },
+  'bench-press': {
+    'Performance': [
+      'Control the bar on the way down',
+      'Full range of motion',
+      'Drive through your feet',
+      'Keep your wrists straight'
+    ],
+    'Safety': [
+      'Keep your back flat on the bench',
+      'Keep your shoulders back',
+      'Engage your core'
+    ],
+    'Motivation': [
+      'Breathe out on the press',
+      'Strong rep!',
+      'Keep pushing!',
+      'Excellent work!'
+    ]
+  },
+  'deadlift': {
+    'Performance': [
+      'Focus on the hip hinge',
+      'Drive through your heels',
+      'Full extension at the top',
+      'Slow down, control the movement'
+    ],
+    'Safety': [
+      'Keep your back straight',
+      'Chest up, shoulders back',
+      'Keep the bar close to your body',
+      'Engage your core'
+    ],
+    'Motivation': [
+      'Great technique!',
+      'Keep it going!',
+      'Strong lift!',
+      'Perfect form!'
+    ]
+  },
+  'squats': {
+    'Performance': [
+      'Go down to parallel or below',
+      'Drive through your heels',
+      'Full range of motion',
+      'Control the descent',
+      'Keep your weight balanced'
+    ],
+    'Safety': [
+      'Keep your knees behind your toes',
+      'Chest up, back straight',
+      'Keep your core engaged'
+    ],
+    'Motivation': [
+      'Great depth!',
+      'Keep pushing!',
+      'Excellent form!',
+      'You\'re doing great!'
+    ]
+  }
 };
 
 // HTML elements
-const startButton = document.getElementById('startButton');
-const hangupButton = document.getElementById('hangupButton');
+const startButton = document.getElementById('startButtonHeader'); // Use header button
+const hangupButton = document.getElementById('hangupButtonHeader'); // Use header button for consistency
+const hangupButtonHeader = hangupButton; // Alias for consistency
 const remoteVideo = document.getElementById('remoteVideo');
-const joinKeySection = document.getElementById('joinKeySection');
-const joinKeyDisplay = document.getElementById('joinKeyDisplay');
-const copyButton = document.getElementById('copyButton');
-const copySuccess = document.getElementById('copySuccess');
-const statusMessage = document.getElementById('statusMessage');
+const joinKeySection = null; // Removed from UI
+const joinKeyDisplay = document.getElementById('sessionCodeDisplay'); // Use session code display instead
+const copyButton = null; // Removed from UI
+const copySuccess = null; // Removed from UI
+const statusMessage = null; // Removed from UI
 const sessionHeader = document.getElementById('sessionHeader');
 const sessionCodeDisplay = document.getElementById('sessionCodeDisplay');
 const connectionStatus = document.getElementById('connectionStatus');
@@ -102,8 +144,18 @@ const decrementRep = document.getElementById('decrementRep');
 const startSetButton = document.getElementById('startSetButton');
 const endSetButton = document.getElementById('endSetButton');
 const feedbackButtons = document.getElementById('feedbackButtons');
-const hangupButtonHeader = document.getElementById('hangupButtonHeader');
 const closeCoachSummaryButton = document.getElementById('closeCoachSummaryButton');
+const scoreModalOverlay = document.getElementById('scoreModalOverlay');
+const scoreInput = document.getElementById('scoreInput');
+const notesInput = document.getElementById('notesInput');
+const saveScoreButton = document.getElementById('saveScoreButton');
+const skipScoreButton = document.getElementById('skipScoreButton');
+const sessionHistoryContent = document.getElementById('sessionHistoryContent');
+
+// Ensure modal is hidden on page load
+if (scoreModalOverlay) {
+  scoreModalOverlay.classList.add('hidden');
+}
 
 // Initialize rep buttons as disabled
 incrementRep.disabled = true;
@@ -145,25 +197,44 @@ startButton.onclick = async () => {
     // Initialize peer connection (coach doesn't need camera)
     initPeerConnection();
 
-    // Create Firestore document for this call
+    // Create Firestore document for this call (WebRTC signaling)
     callDoc = firestore.collection('calls').doc();
     const offerCandidates = callDoc.collection('offerCandidates');
     const answerCandidates = callDoc.collection('answerCandidates');
 
-    // Display join key
+    // Create session document for data storage (use same ID as callDoc for linking)
+    sessionDoc = firestore.collection('sessions').doc(callDoc.id);
+    exerciseSetsCollection = sessionDoc.collection('exerciseSets');
+    
+    // Initialize session document
+    await sessionDoc.set({
+      coachId: 'coach', // Placeholder for now
+      status: 'LIVE',
+      startedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      endedAt: null,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+
+    // Display join key (use callDoc ID for WebRTC, sessionDoc ID could be different)
     const sessionId = callDoc.id;
-    joinKeyDisplay.textContent = sessionId;
     sessionCodeDisplay.textContent = sessionId;
-    joinKeySection.classList.remove('hidden');
     sessionHeader.classList.remove('hidden');
     
     // Initialize feedback collection
     feedbackCollection = callDoc.collection('feedback');
     
-    // Show dashboard
-    coachDashboard.classList.remove('hidden');
-    joinKeySection.classList.add('hidden');
-    document.querySelector('.page-title').style.display = 'none';
+          // Show dashboard
+          coachDashboard.classList.remove('hidden');
+          document.querySelector('.page-title').style.display = 'none';
+          
+          // Hide start button, show end button
+          if (startButton) {
+            startButton.classList.add('hidden');
+          }
+          if (hangupButtonHeader) {
+            hangupButtonHeader.classList.remove('hidden');
+          }
 
     // Get candidates for caller, save to db
     pc.onicecandidate = (event) => {
@@ -204,30 +275,30 @@ startButton.onclick = async () => {
       });
     });
 
-    startButton.disabled = true;
-    hangupButton.classList.remove('hidden');
-    hangupButtonHeader.classList.remove('hidden');
+    // Buttons are already handled above
+    
+    // Load session history
+    loadSessionHistory();
   } catch (error) {
     console.error('Error accessing media devices:', error);
     showStatus('Error accessing camera/microphone: ' + error.message, 'error');
   }
 };
 
-// Copy join key
-copyButton.onclick = async () => {
-  try {
-    await navigator.clipboard.writeText(joinKeyDisplay.textContent);
-    copySuccess.classList.remove('hidden');
-    setTimeout(() => {
-      copySuccess.classList.add('hidden');
-    }, 2000);
-  } catch (error) {
-    console.error('Failed to copy:', error);
-  }
-};
+// Copy join key - functionality moved to session code display if needed
+// Can be added later if copy functionality is required
 
 // Hangup
-hangupButton.onclick = () => {
+hangupButton.onclick = async () => {
+  // End session in Firestore
+  if (sessionDoc) {
+    await sessionDoc.update({
+      status: 'ENDED',
+      endedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+  }
+  
   if (pc) {
     pc.close();
   }
@@ -237,10 +308,13 @@ hangupButton.onclick = () => {
   
   remoteVideo.srcObject = null;
   
-  startButton.disabled = false;
-  hangupButton.classList.add('hidden');
-  hangupButtonHeader.classList.add('hidden');
-  joinKeySection.classList.add('hidden');
+  // Show start button, hide end button
+  if (startButton) {
+    startButton.classList.remove('hidden');
+  }
+  if (hangupButtonHeader) {
+    hangupButtonHeader.classList.add('hidden');
+  }
   sessionHeader.classList.add('hidden');
   coachDashboard.classList.add('hidden');
   document.querySelector('.page-title').style.display = '';
@@ -252,6 +326,7 @@ hangupButton.onclick = () => {
   feedbackButtons.innerHTML = '<p class="no-exercise-message">Select an exercise to see feedback options</p>';
   isSetActive = false;
   feedbackQueue = [];
+  setStartTime = null;
   startSetButton.classList.remove('hidden');
   endSetButton.classList.add('hidden');
   // Disable rep buttons
@@ -262,20 +337,24 @@ hangupButton.onclick = () => {
   if (coachSummaryPanel) {
     coachSummaryPanel.classList.add('hidden');
   }
+  // Clear session history
+  if (sessionHistoryContent) {
+    sessionHistoryContent.innerHTML = '<p class="no-summary-message">No sets completed yet</p>';
+  }
+  
+  // Reset session references
+  sessionDoc = null;
+  exerciseSetsCollection = null;
   
   showStatus('Session ended', 'info');
 };
 
-// Show status message
+// Show status message - removed, using header status indicator instead
 function showStatus(message, type = 'info') {
-  statusMessage.textContent = message;
-  statusMessage.className = `status-message ${type}`;
-  statusMessage.classList.remove('hidden');
-  
-  if (type === 'success' || type === 'error') {
-    setTimeout(() => {
-      statusMessage.classList.add('hidden');
-    }, 5000);
+  // Status messages are now shown in the header connection status
+  // Only log errors to console
+  if (type === 'error') {
+    console.error('Error:', message);
   }
 }
 
@@ -327,12 +406,35 @@ function updateFeedbackButtons(exercise) {
   }
   
   const feedbacks = exerciseFeedback[exercise];
-  feedbacks.forEach((feedback) => {
-    const button = document.createElement('button');
-    button.className = 'feedback-btn';
-    button.textContent = feedback;
-    button.onclick = () => sendFeedback(feedback);
-    feedbackButtons.appendChild(button);
+  const categories = ['Performance', 'Safety', 'Motivation'];
+  
+  categories.forEach((category) => {
+    if (!feedbacks[category] || feedbacks[category].length === 0) return;
+    
+    // Create category container
+    const categoryContainer = document.createElement('div');
+    categoryContainer.className = 'feedback-category';
+    
+    // Create category header
+    const categoryHeader = document.createElement('div');
+    categoryHeader.className = 'feedback-category-header';
+    categoryHeader.textContent = category;
+    categoryContainer.appendChild(categoryHeader);
+    
+    // Create category buttons container
+    const categoryButtons = document.createElement('div');
+    categoryButtons.className = 'feedback-category-buttons';
+    
+    feedbacks[category].forEach((feedback) => {
+      const button = document.createElement('button');
+      button.className = 'feedback-btn';
+      button.textContent = feedback;
+      button.onclick = () => sendFeedback(feedback);
+      categoryButtons.appendChild(button);
+    });
+    
+    categoryContainer.appendChild(categoryButtons);
+    feedbackButtons.appendChild(categoryContainer);
   });
 }
 
@@ -426,6 +528,7 @@ startSetButton.addEventListener('click', () => {
   // Clear previous summary and start new set
   feedbackQueue = [];
   isSetActive = true;
+  setStartTime = new Date(); // Track when set started
   
   // Clear summary on client side and notify set start
   if (callDoc) {
@@ -451,13 +554,28 @@ startSetButton.addEventListener('click', () => {
 });
 
 // End set button
-endSetButton.addEventListener('click', () => {
+endSetButton.addEventListener('click', async () => {
   if (!isSetActive) return;
   
+  // Calculate set duration
+  const setEndTime = new Date();
+  const duration = setStartTime ? Math.round((setEndTime - setStartTime) / 1000) : 0; // Duration in seconds
+  
+  // Get current exercise info
+  const exerciseType = exerciseSelect.value;
+  const exerciseNames = {
+    'shoulder-press': 'Shoulder Press',
+    'bench-press': 'Bench Press',
+    'deadlift': 'Deadlift',
+    'squats': 'Squats'
+  };
+  const exerciseName = exerciseNames[exerciseType] || 'Unknown';
+  
+  // Prepare feedback array
+  const coachFeedback = feedbackQueue.map(item => item.message);
+  
   // Save summary to Firestore (even if empty) and notify set end
-  const summary = feedbackQueue.length > 0 
-    ? feedbackQueue.map(item => item.message)
-    : [];
+  const summary = coachFeedback;
   
   if (callDoc) {
     callDoc.update({
@@ -473,6 +591,7 @@ endSetButton.addEventListener('click', () => {
   
   // Reset set state
   isSetActive = false;
+  const finalRepCount = repCount;
   feedbackQueue = [];
   
   // Reset rep count
@@ -486,12 +605,12 @@ endSetButton.addEventListener('click', () => {
   // Disable rep buttons when set ends
   incrementRep.disabled = true;
   decrementRep.disabled = true;
+  
+  // Show score input modal
+  showScoreModal(exerciseType, exerciseName, finalRepCount, coachFeedback, setStartTime, setEndTime, duration);
 });
 
-// Hangup button in header
-hangupButtonHeader.addEventListener('click', () => {
-  hangupButton.click();
-});
+// Hangup button in header - both hangupButton and hangupButtonHeader point to the same element
 
 // Close coach summary button
 if (closeCoachSummaryButton) {
@@ -501,5 +620,158 @@ if (closeCoachSummaryButton) {
       coachSummaryPanel.classList.add('hidden');
     }
   });
+}
+
+// Score Modal Functions
+let currentSetData = null; // Store set data while waiting for score input
+
+function showScoreModal(exerciseType, exerciseName, actualReps, coachFeedback, startedAt, completedAt, duration) {
+  if (!scoreModalOverlay || !scoreInput || !notesInput) {
+    console.error('Score modal elements not found');
+    return;
+  }
+  
+  currentSetData = {
+    exerciseType,
+    exerciseName,
+    actualReps,
+    coachFeedback,
+    startedAt,
+    completedAt,
+    duration
+  };
+  
+  scoreInput.value = '';
+  notesInput.value = '';
+  scoreModalOverlay.classList.remove('hidden');
+  scoreInput.focus();
+}
+
+function hideScoreModal() {
+  if (scoreModalOverlay) {
+    scoreModalOverlay.classList.add('hidden');
+  }
+  currentSetData = null;
+}
+
+async function saveExerciseSet(score, notes) {
+  if (!sessionDoc || !exerciseSetsCollection || !currentSetData) return;
+  
+  try {
+    const exerciseSetData = {
+      exerciseType: currentSetData.exerciseType,
+      exerciseName: currentSetData.exerciseName,
+      actualReps: currentSetData.actualReps,
+      coachScore: score !== null && score !== '' ? parseFloat(score) : null,
+      coachFeedback: currentSetData.coachFeedback,
+      notes: notes && notes.trim() ? notes.trim() : null,
+      startedAt: firebase.firestore.Timestamp.fromDate(currentSetData.startedAt),
+      completedAt: firebase.firestore.Timestamp.fromDate(currentSetData.completedAt),
+      duration: currentSetData.duration,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    };
+    
+    await exerciseSetsCollection.add(exerciseSetData);
+    console.log('Exercise set saved successfully');
+    
+    // Refresh session history
+    loadSessionHistory();
+  } catch (error) {
+    console.error('Error saving exercise set:', error);
+    showStatus('Error saving set data', 'error');
+  }
+}
+
+// Score modal button handlers
+if (saveScoreButton) {
+  saveScoreButton.addEventListener('click', async () => {
+    if (!scoreInput) return;
+    const score = scoreInput.value;
+    const notes = notesInput ? notesInput.value : '';
+    
+    // Validate score
+    if (score !== '' && (parseFloat(score) < 0 || parseFloat(score) > 10)) {
+      showStatus('Score must be between 0 and 10', 'error');
+      return;
+    }
+    
+    await saveExerciseSet(score, notes);
+    hideScoreModal();
+    showStatus('Set saved successfully', 'success');
+  });
+}
+
+if (skipScoreButton) {
+  skipScoreButton.addEventListener('click', async () => {
+    await saveExerciseSet(null, null);
+    hideScoreModal();
+    showStatus('Set saved (no score)', 'info');
+  });
+}
+
+// Close modal when clicking outside
+if (scoreModalOverlay) {
+  scoreModalOverlay.addEventListener('click', (e) => {
+    if (e.target === scoreModalOverlay) {
+      // Don't close on outside click - require explicit save/skip
+    }
+  });
+}
+
+// Load and display session history
+function loadSessionHistory() {
+  if (!exerciseSetsCollection) return;
+  
+  exerciseSetsCollection
+    .orderBy('completedAt', 'desc')
+    .onSnapshot((snapshot) => {
+      const sets = [];
+      snapshot.forEach((doc) => {
+        sets.push({ id: doc.id, ...doc.data() });
+      });
+      
+      displaySessionHistory(sets);
+    }, (error) => {
+      console.error('Error loading session history:', error);
+    });
+}
+
+function displaySessionHistory(sets) {
+  if (!sessionHistoryContent) return;
+  
+  if (sets.length === 0) {
+    sessionHistoryContent.innerHTML = '<p class="no-summary-message">No sets completed yet</p>';
+    return;
+  }
+  
+  const historyList = document.createElement('div');
+  historyList.className = 'history-list';
+  
+  sets.forEach((set, index) => {
+    const setItem = document.createElement('div');
+    setItem.className = 'history-item';
+    
+    const scoreDisplay = set.coachScore !== null ? `${set.coachScore}/10` : 'No score';
+    const durationDisplay = set.duration ? `${set.duration}s` : 'N/A';
+    const feedbackCount = set.coachFeedback ? set.coachFeedback.length : 0;
+    
+    setItem.innerHTML = `
+      <div class="history-item-header">
+        <span class="history-exercise">${set.exerciseName || 'Unknown'}</span>
+        <span class="history-reps">${set.actualReps} reps</span>
+      </div>
+      <div class="history-item-details">
+        <span class="history-score">Score: ${scoreDisplay}</span>
+        <span class="history-duration">Duration: ${durationDisplay}</span>
+        <span class="history-feedback">Feedback: ${feedbackCount} messages</span>
+      </div>
+    `;
+    
+    historyList.appendChild(setItem);
+  });
+  
+  sessionHistoryContent.innerHTML = '';
+  sessionHistoryContent.appendChild(historyList);
 }
 

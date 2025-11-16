@@ -32,6 +32,8 @@ const servers = {
 let pc = null;
 let localStream = null;
 let callDoc = null;
+let sessionDoc = null; // Session document reference
+let allSessionSummaries = []; // Track all sets' summaries
 
 // HTML elements
 const joinButton = document.getElementById('joinButton');
@@ -41,6 +43,7 @@ const localVideo = document.getElementById('localVideo');
 const sessionSection = document.getElementById('sessionSection');
 const statusMessage = document.getElementById('statusMessage');
 const clientRepCount = document.getElementById('clientRepCount');
+const clientRepCounter = document.querySelector('.client-rep-counter');
 const clientExerciseName = document.getElementById('clientExerciseName');
 const clientSummaryPanel = document.getElementById('clientSummaryPanel');
 const summaryContent = document.getElementById('summaryContent');
@@ -48,6 +51,13 @@ const closeSummaryButton = document.getElementById('closeSummaryButton');
 const clientSetNotification = document.getElementById('clientSetNotification');
 const notificationText = document.getElementById('notificationText');
 const notificationIcon = document.getElementById('notificationIcon');
+const setStatusIndicator = document.getElementById('setStatusIndicator');
+const seeSummaryButton = document.getElementById('seeSummaryButton');
+const summaryModalOverlay = document.getElementById('summaryModalOverlay');
+const allSummariesContent = document.getElementById('allSummariesContent');
+const closeSummaryModalButton = document.getElementById('closeSummaryModalButton');
+const utilityMenuButton = document.getElementById('utilityMenuButton');
+const utilityMenuPopup = document.getElementById('utilityMenuPopup');
 
 // Initialize peer connection
 function initPeerConnection() {
@@ -116,12 +126,30 @@ joinButton.onclick = async () => {
     localVideo.srcObject = localStream;
     sessionSection.classList.remove('hidden');
     document.body.classList.add('in-session');
+    
+    // Show utility menu button
+    if (utilityMenuButton) {
+      utilityMenuButton.classList.remove('hidden');
+    }
 
     // Reference Firestore document
     callDoc = firestore.collection('calls').doc(callId);
     const answerCandidates = callDoc.collection('answerCandidates');
     const offerCandidates = callDoc.collection('offerCandidates');
     const feedbackCollection = callDoc.collection('feedback');
+    
+    // Find and listen to session document (sessionId = callId for now)
+    sessionDoc = firestore.collection('sessions').doc(callId);
+    
+    // Listen for session status changes
+    sessionDoc.onSnapshot((snapshot) => {
+      if (!snapshot.exists()) return;
+      
+      const sessionData = snapshot.data();
+      if (sessionData.status === 'ENDED') {
+        handleSessionEnded();
+      }
+    });
     
     // Listen for feedback messages
     // Track processed message IDs to avoid duplicates
@@ -185,7 +213,7 @@ joinButton.onclick = async () => {
         if (data.currentExercise) {
           updateClientExercise(data.currentExercise);
         } else {
-          updateClientExercise('Waiting for coach...');
+          updateClientExercise('Detecting exercise');
         }
         
         // Check for set status changes
@@ -255,6 +283,34 @@ joinKeyInput.addEventListener('keypress', (e) => {
   }
 });
 
+// Handle session ended by coach
+function handleSessionEnded() {
+  showSetNotification('Session Ended', 'Coach has ended the session', 'end');
+  speakFeedback('Session ended by coach. Thank you for your workout!');
+  showStatus('Session ended by coach', 'info');
+  
+  // Disable controls but keep video visible
+  if (hangupButton) {
+    const btnText = hangupButton.querySelector('.btn-text');
+    if (btnText) {
+      btnText.textContent = 'Session Ended';
+    }
+    hangupButton.disabled = true;
+  }
+  
+  // Show utility menu button if not already visible
+  if (utilityMenuButton) {
+    utilityMenuButton.classList.remove('hidden');
+  }
+  
+  // Show notification for a longer time
+  setTimeout(() => {
+    if (clientSetNotification) {
+      clientSetNotification.classList.add('hidden');
+    }
+  }, 5000);
+}
+
 // Leave session function (used by both hangup button and auto-leave)
 function leaveSession() {
   if (localStream) {
@@ -269,9 +325,17 @@ function leaveSession() {
   joinButton.disabled = false;
   joinKeyInput.disabled = false;
   joinKeyInput.value = '';
-  hangupButton.classList.add('hidden');
+  if (utilityMenuButton) {
+    utilityMenuButton.classList.add('hidden');
+  }
+  if (utilityMenuPopup) {
+    utilityMenuPopup.classList.add('hidden');
+  }
   sessionSection.classList.add('hidden');
   document.body.classList.remove('in-session');
+  
+  // Reset summaries
+  allSessionSummaries = [];
   
   showStatus('Left session', 'info');
 }
@@ -526,6 +590,171 @@ if (closeSummaryButton) {
   });
 }
 
+// Utility Menu Button
+if (utilityMenuButton) {
+  utilityMenuButton.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (utilityMenuPopup) {
+      utilityMenuPopup.classList.toggle('hidden');
+    }
+  });
+}
+
+// Close utility menu when clicking outside
+document.addEventListener('click', (e) => {
+  if (utilityMenuPopup && !utilityMenuPopup.contains(e.target) && 
+      utilityMenuButton && !utilityMenuButton.contains(e.target)) {
+    utilityMenuPopup.classList.add('hidden');
+  }
+});
+
+// See Summary button
+if (seeSummaryButton) {
+  seeSummaryButton.addEventListener('click', () => {
+    if (utilityMenuPopup) {
+      utilityMenuPopup.classList.add('hidden');
+    }
+    showAllSummaries();
+  });
+}
+
+// Close summary modal button
+if (closeSummaryModalButton) {
+  closeSummaryModalButton.addEventListener('click', () => {
+    if (summaryModalOverlay) {
+      summaryModalOverlay.classList.add('hidden');
+    }
+  });
+}
+
+// Close modal when clicking outside
+if (summaryModalOverlay) {
+  summaryModalOverlay.addEventListener('click', (e) => {
+    if (e.target === summaryModalOverlay) {
+      summaryModalOverlay.classList.add('hidden');
+    }
+  });
+}
+
+// Show all summaries in modal - fetch from Firestore
+async function showAllSummaries() {
+  if (!allSummariesContent || !summaryModalOverlay) return;
+  
+  // Show loading state
+  allSummariesContent.innerHTML = '<p class="no-summary-message">Loading summary...</p>';
+  summaryModalOverlay.classList.remove('hidden');
+  
+  try {
+    // Get session ID from sessionDoc (sessionDoc.id should match callDoc.id for now)
+    let sessionId = null;
+    if (sessionDoc) {
+      sessionId = sessionDoc.id;
+    } else if (callDoc) {
+      // Fallback: use callDoc ID (they should be the same)
+      sessionId = callDoc.id;
+    }
+    
+    if (!sessionId) {
+      allSummariesContent.innerHTML = '<p class="no-summary-message">No session found. Please join a session first.</p>';
+      return;
+    }
+    
+    // Fetch exercise sets from Firestore
+    const exerciseSetsCollection = firestore.collection('sessions').doc(sessionId).collection('exerciseSets');
+    const snapshot = await exerciseSetsCollection.orderBy('completedAt', 'asc').get();
+    
+    if (snapshot.empty) {
+      allSummariesContent.innerHTML = '<p class="no-summary-message">No sets completed yet</p>';
+      return;
+    }
+    
+    // Build summary display
+    const summaryContainer = document.createElement('div');
+    summaryContainer.className = 'all-summaries-container';
+    
+    snapshot.docs.forEach((doc, index) => {
+      const setData = doc.data();
+      const setCard = document.createElement('div');
+      setCard.className = 'set-summary-card';
+      
+      // Format duration
+      const duration = setData.duration || 0;
+      const minutes = Math.floor(duration / 60);
+      const seconds = duration % 60;
+      const durationText = minutes > 0 ? `${minutes}m ${seconds}s` : `${seconds}s`;
+      
+      // Format score
+      const scoreText = setData.coachScore !== null && setData.coachScore !== undefined 
+        ? `${setData.coachScore}/10` 
+        : 'No score';
+      
+      const setHeader = document.createElement('div');
+      setHeader.className = 'set-summary-header';
+      setHeader.innerHTML = `
+        <div class="set-number">Set ${index + 1}</div>
+        <div class="set-exercise">${setData.exerciseName || 'Unknown Exercise'}</div>
+        <div class="set-reps">${setData.actualReps || 0} reps</div>
+      `;
+      
+      const setDetails = document.createElement('div');
+      setDetails.className = 'set-summary-details';
+      setDetails.innerHTML = `
+        <div class="set-detail-item">
+          <span class="detail-label">Score:</span>
+          <span class="detail-value">${scoreText}</span>
+        </div>
+        <div class="set-detail-item">
+          <span class="detail-label">Duration:</span>
+          <span class="detail-value">${durationText}</span>
+        </div>
+      `;
+      
+      const feedbackList = document.createElement('ul');
+      feedbackList.className = 'set-feedback-list';
+      
+      if (setData.coachFeedback && Array.isArray(setData.coachFeedback) && setData.coachFeedback.length > 0) {
+        setData.coachFeedback.forEach((feedback, fbIndex) => {
+          const feedbackItem = document.createElement('li');
+          feedbackItem.className = 'set-feedback-item';
+          feedbackItem.textContent = `${fbIndex + 1}. ${feedback}`;
+          feedbackList.appendChild(feedbackItem);
+        });
+      } else {
+        const noFeedbackItem = document.createElement('li');
+        noFeedbackItem.className = 'set-feedback-item no-feedback';
+        noFeedbackItem.textContent = 'No feedback provided';
+        feedbackList.appendChild(noFeedbackItem);
+      }
+      
+      // Add notes if available
+      if (setData.notes && setData.notes.trim()) {
+        const notesDiv = document.createElement('div');
+        notesDiv.className = 'set-notes';
+        notesDiv.innerHTML = `
+          <div class="notes-label">Notes:</div>
+          <div class="notes-text">${setData.notes}</div>
+        `;
+        setCard.appendChild(setHeader);
+        setCard.appendChild(setDetails);
+        setCard.appendChild(feedbackList);
+        setCard.appendChild(notesDiv);
+      } else {
+        setCard.appendChild(setHeader);
+        setCard.appendChild(setDetails);
+        setCard.appendChild(feedbackList);
+      }
+      
+      summaryContainer.appendChild(setCard);
+    });
+    
+    allSummariesContent.innerHTML = '';
+    allSummariesContent.appendChild(summaryContainer);
+  } catch (error) {
+    console.error('Error loading summaries:', error);
+    allSummariesContent.innerHTML = '<p class="no-summary-message">Error loading summary. Please try again.</p>';
+  }
+}
+
 // Handle set status changes (start/end)
 let lastSetStatusTimestamp = null;
 let hasNavigatedToSummary = false;
@@ -542,13 +771,40 @@ function handleSetStatusChange(status, timestamp, summary) {
   }
   
   if (status === 'started') {
-    showSetNotification('Set Started!', '', 'start');
+    // Show green dot indicator instead of popup
+    if (setStatusIndicator) {
+      setStatusIndicator.classList.remove('hidden');
+    }
+    // Make rep counter light green
+    if (clientRepCounter) {
+      clientRepCounter.classList.add('set-active');
+    }
     // Voice announcement
     speakFeedback('Set started. Begin your exercise.');
   } else if (status === 'ended') {
-    showSetNotification('Set Ended!', '', 'end');
-    // Voice announcement
+    // Hide green dot indicator
+    if (setStatusIndicator) {
+      setStatusIndicator.classList.add('hidden');
+    }
+    // Make rep counter white again
+    if (clientRepCounter) {
+      clientRepCounter.classList.remove('set-active');
+    }
+    // No popup, just voice announcement
     speakFeedback('Set ended. Great work!');
+    
+    // Store summary for this set
+    if (summary && Array.isArray(summary) && summary.length > 0) {
+      const currentExercise = clientExerciseName ? clientExerciseName.textContent : 'Unknown Exercise';
+      const currentReps = clientRepCount ? parseInt(clientRepCount.textContent) || 0 : 0;
+      
+      allSessionSummaries.push({
+        exercise: currentExercise,
+        reps: currentReps,
+        feedback: summary,
+        timestamp: new Date()
+      });
+    }
   }
 }
 

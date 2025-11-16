@@ -6,11 +6,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <title>pillar - Client</title>
+    <title>Pillar - Client</title>
   </head>
   <body class="client-page">
     <div class="container">
-      <a href="index.html" class="brand">pillar</a>
+      <a href="index.html" class="brand">Pillar</a>
       
       <div class="main-content">
         <h1 class="page-title">Join Session</h1>
@@ -35,15 +35,15 @@
         </div>
 
         <div class="session-section hidden" id="sessionSection">
+          <!-- Exercise Name at Top -->
+          <div class="client-exercise-header">
+            <div id="clientExerciseName" class="client-exercise-name-top">Detecting exercise</div>
+          </div>
+          
           <div class="video-container client-video-container">
             <div class="video-wrapper client-video-wrapper">
               <video id="localVideo" autoplay playsinline></video>
-              <div class="client-exercise-display">
-                <div class="client-exercise-label">Exercise</div>
-                <div id="clientExerciseName" class="client-exercise-name">Waiting for coach...</div>
-              </div>
               <div class="client-rep-counter">
-                <div class="client-rep-label">Reps</div>
                 <div id="clientRepCount" class="client-rep-count">0</div>
               </div>
               <div class="client-summary-panel hidden" id="clientSummaryPanel">
@@ -55,6 +55,9 @@
                   <p class="no-summary-message">No feedback yet</p>
                 </div>
               </div>
+              <!-- Set Status Indicator (Green Dot) -->
+              <div class="set-status-indicator hidden" id="setStatusIndicator"></div>
+              
               <div class="client-set-notification hidden" id="clientSetNotification">
                 <div class="notification-content">
                   <div class="notification-icon" id="notificationIcon"></div>
@@ -63,12 +66,40 @@
               </div>
             </div>
           </div>
+          
+          <!-- Utility Menu Button -->
+          <button id="utilityMenuButton" class="utility-menu-btn hidden">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="5" r="1"></circle>
+              <circle cx="12" cy="12" r="1"></circle>
+              <circle cx="12" cy="19" r="1"></circle>
+            </svg>
+          </button>
+          
+          <!-- Utility Menu Popup -->
+          <div class="utility-menu-popup hidden" id="utilityMenuPopup">
+            <button id="seeSummaryButton" class="utility-menu-item">
+              <span class="utility-menu-text">See Summary</span>
+            </button>
+            <button id="hangupButton" class="utility-menu-item">
+              <span class="utility-menu-text">Leave Session</span>
+            </button>
+          </div>
         </div>
 
-        <div class="controls-section">
-          <button id="hangupButton" class="btn btn-secondary hidden">
-            <span class="btn-text">Leave Session</span>
-          </button>
+        <!-- Summary Modal -->
+        <div class="modal-overlay hidden" id="summaryModalOverlay">
+          <div class="modal-content summary-modal-content">
+            <div class="modal-header">
+              <h3 class="modal-title">Session Summary</h3>
+              <button id="closeSummaryModalButton" class="modal-close-btn">×</button>
+            </div>
+            <div class="modal-body summary-modal-body">
+              <div id="allSummariesContent" class="all-summaries-content">
+                <p class="no-summary-message">No sets completed yet</p>
+              </div>
+            </div>
+          </div>
         </div>
 
         <div id="statusMessage" class="status-message"></div>

@@ -1,4 +1,4 @@
-# pillar - WebRTC Fitness Coaching App
+# Pillar - WebRTC Fitness Coaching App
 
 A real-time video coaching application built with WebRTC and Firebase, allowing coaches to provide live feedback to clients during workout sessions.
 

@@ -4,11 +4,11 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>pillar - Coach</title>
+    <title>Pillar - Coach</title>
   </head>
   <body class="coach-page">
     <div class="container">
-      <a href="index.html" class="brand">pillar</a>
+      <a href="index.html" class="brand">Pillar</a>
       
       <div class="main-content">
         <!-- Session Header -->
@@ -17,67 +17,70 @@
             <span class="session-code-label">Session Code:</span>
             <span id="sessionCodeDisplay" class="session-code-value"></span>
           </div>
-          <div class="session-header-right">
-            <div class="session-status">
-              <span id="connectionStatus" class="status-indicator">• Waiting for client</span>
-            </div>
-            <button id="hangupButtonHeader" class="btn btn-secondary btn-small hidden">
-              <span class="btn-text">End Session</span>
-            </button>
-          </div>
+                <div class="session-header-right">
+                  <div class="session-status">
+                    <span id="connectionStatus" class="status-indicator">• Waiting for client</span>
+                  </div>
+                  <button id="startButtonHeader" class="btn btn-primary btn-small">
+                    <span class="btn-text">Start Session</span>
+                  </button>
+                  <button id="hangupButtonHeader" class="btn btn-secondary btn-small hidden">
+                    <span class="btn-text">End Session</span>
+                  </button>
+                </div>
         </div>
 
         <h1 class="page-title">Coach Session</h1>
         
         <div class="coach-dashboard hidden" id="coachDashboard">
-          <div class="dashboard-main">
-            <div class="session-section">
-              <div class="video-container coach-video-container">
-                <div class="video-wrapper">
-                  <video id="remoteVideo" autoplay playsinline></video>
-                  <div class="video-label">Client</div>
-                </div>
-              </div>
-            </div>
+                <div class="dashboard-main">
+                  <div class="session-section">
+                    <div class="video-container coach-video-container">
+                      <div class="video-wrapper">
+                        <video id="remoteVideo" autoplay playsinline></video>
+                        <div class="video-label">Client</div>
+                      </div>
+                    </div>
+                    
+                    <!-- Quick Feedback - Below Video -->
+                    <div class="dashboard-panel feedback-panel feedback-panel-horizontal">
+                      <label class="panel-label">Quick Feedback</label>
+                      <div id="feedbackButtons" class="feedback-buttons feedback-buttons-horizontal">
+                        <p class="no-exercise-message">Select an exercise to see feedback options</p>
+                      </div>
+                    </div>
+                  </div>
 
-            <div class="dashboard-sidebar">
-              <!-- Exercise Selector -->
-              <div class="dashboard-panel">
-                <label class="panel-label">Exercise</label>
-                <select id="exerciseSelect" class="exercise-select">
-                  <option value="">Select Exercise</option>
-                  <option value="shoulder-press">Shoulder Press</option>
-                  <option value="bench-press">Bench Press</option>
-                  <option value="deadlift">Deadlift</option>
-                  <option value="squats">Squats</option>
-                </select>
-              </div>
+                  <div class="dashboard-sidebar">
+                    <!-- Exercise Selector -->
+                    <div class="dashboard-panel">
+                      <label class="panel-label">Exercise</label>
+                      <select id="exerciseSelect" class="exercise-select">
+                        <option value="">Select Exercise</option>
+                        <option value="shoulder-press">Shoulder Press</option>
+                        <option value="bench-press">Bench Press</option>
+                        <option value="deadlift">Deadlift</option>
+                        <option value="squats">Squats</option>
+                      </select>
+                    </div>
 
-              <!-- Rep Counter -->
-              <div class="dashboard-panel">
-                <label class="panel-label">Rep Counter</label>
-                <div class="rep-counter">
-                  <button id="decrementRep" class="rep-button">−</button>
-                  <span id="repCount" class="rep-count">0</span>
-                  <button id="incrementRep" class="rep-button">+</button>
-                </div>
-                <div class="set-buttons">
-                  <button id="startSetButton" class="btn btn-primary start-set-btn">
-                    <span class="btn-text">Start Set</span>
-                  </button>
-                  <button id="endSetButton" class="btn btn-secondary end-set-btn hidden">
-                    <span class="btn-text">End Set</span>
-                  </button>
-                </div>
-              </div>
-
-              <!-- Quick Feedback -->
-              <div class="dashboard-panel feedback-panel">
-                <label class="panel-label">Quick Feedback</label>
-                <div id="feedbackButtons" class="feedback-buttons">
-                  <p class="no-exercise-message">Select an exercise to see feedback options</p>
-                </div>
-              </div>
+                    <!-- Rep Counter -->
+                    <div class="dashboard-panel">
+                      <label class="panel-label">Rep Counter</label>
+                      <div class="rep-counter">
+                        <button id="decrementRep" class="rep-button">−</button>
+                        <span id="repCount" class="rep-count">0</span>
+                        <button id="incrementRep" class="rep-button">+</button>
+                      </div>
+                      <div class="set-buttons">
+                        <button id="startSetButton" class="btn btn-primary start-set-btn">
+                          <span class="btn-text">Start Set</span>
+                        </button>
+                        <button id="endSetButton" class="btn btn-secondary end-set-btn hidden">
+                          <span class="btn-text">End Set</span>
+                        </button>
+                      </div>
+                    </div>
 
               <!-- Coach Summary -->
               <div class="dashboard-panel coach-summary-panel hidden" id="coachSummaryPanel">
@@ -89,36 +92,58 @@
                   <p class="no-summary-message">No feedback yet</p>
                 </div>
               </div>
+
+              <!-- Session History -->
+              <div class="dashboard-panel session-history-panel" id="sessionHistoryPanel">
+                <div class="summary-header">
+                  <label class="panel-label">Session History</label>
+                </div>
+                <div id="sessionHistoryContent" class="summary-content">
+                  <p class="no-summary-message">No sets completed yet</p>
+                </div>
+              </div>
             </div>
           </div>
         </div>
 
-        <div class="controls-section">
-          <button id="startButton" class="btn btn-primary">
-            <span class="btn-text">Start Session</span>
-            <span class="btn-glow"></span>
-          </button>
-          
-          <div id="joinKeySection" class="join-key-section hidden">
-            <div class="join-key-label">Share this join key with your client:</div>
-            <div class="join-key-display">
-              <span id="joinKeyDisplay" class="join-key-text"></span>
-              <button id="copyButton" class="btn-icon" title="Copy">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-                </svg>
+        <!-- Score Input Modal -->
+        <div class="modal-overlay hidden" id="scoreModalOverlay">
+          <div class="modal-content">
+            <h3 class="modal-title">Set Complete</h3>
+            <div class="modal-body">
+              <div class="modal-field">
+                <label for="scoreInput" class="modal-label">Score (0-10)</label>
+                <input 
+                  type="number" 
+                  id="scoreInput" 
+                  class="modal-input" 
+                  min="0" 
+                  max="10" 
+                  step="0.1"
+                  placeholder="Enter score"
+                />
+              </div>
+              <div class="modal-field">
+                <label for="notesInput" class="modal-label">Notes (Optional)</label>
+                <textarea 
+                  id="notesInput" 
+                  class="modal-textarea" 
+                  rows="3"
+                  placeholder="Add any additional notes..."
+                ></textarea>
+              </div>
+            </div>
+            <div class="modal-actions">
+              <button id="saveScoreButton" class="btn btn-primary">
+                <span class="btn-text">Save</span>
+              </button>
+              <button id="skipScoreButton" class="btn btn-secondary">
+                <span class="btn-text">Skip</span>
               </button>
             </div>
-            <div id="copySuccess" class="copy-success hidden">Copied!</div>
           </div>
-
-          <button id="hangupButton" class="btn btn-secondary hidden">
-            <span class="btn-text">End Session</span>
-          </button>
         </div>
 
-        <div id="statusMessage" class="status-message"></div>
       </div>
     </div>
 
