@@ -43,82 +43,76 @@ let setStartTime = null; // Timestamp when current set started
 
 // Exercise-specific feedback
 const exerciseFeedback = {
-  'shoulder-press': {
+  'lat-pulldown': {
+    'Technique': {
+      'Symmetry': [
+        'Keep both sides even',
+        'Pull evenly on both sides',
+        'Avoid leaning to one side',
+        'Maintain balanced pull'
+      ],
+      'Range of Motion': [
+        'Pull to your chest',
+        'Full extension at the top',
+        'Control the full range',
+        'Complete the movement'
+      ],
+      'Speed': [
+        'Control the descent',
+        'Slow and controlled',
+        'Don\'t rush the movement',
+        'Maintain steady tempo'
+      ]
+    },
     'Performance': [
-      'Press straight up, not forward',
-      'Control the descent',
-      'Full range of motion',
-      'Engage your shoulders',
-      'Keep your elbows in line'
+      'Engage your lats',
+      'Squeeze at the bottom',
+      'Keep your core engaged',
+      'Focus on pulling with your back',
+      'Retract your shoulder blades'
     ],
     'Safety': [
-      'Keep your back straight',
-      'Keep your core tight'
-    ],
-    'Motivation': [
-      'Breathe out on the press',
-      'Great form!',
-      'Keep it up!',
-      'You got this!'
-    ]
-  },
-  'bench-press': {
-    'Performance': [
-      'Control the bar on the way down',
-      'Full range of motion',
-      'Drive through your feet',
-      'Keep your wrists straight'
-    ],
-    'Safety': [
-      'Keep your back flat on the bench',
       'Keep your shoulders back',
-      'Engage your core'
-    ],
-    'Motivation': [
-      'Breathe out on the press',
-      'Strong rep!',
-      'Keep pushing!',
-      'Excellent work!'
+      'Don\'t arch your back excessively',
+      'Keep your core tight',
+      'Maintain proper grip',
+      'Keep your head neutral'
     ]
   },
   'deadlift': {
+    'Technique': {
+      'Symmetry': [
+        'Keep the bar balanced',
+        'Even weight distribution',
+        'Don\'t favor one side',
+        'Maintain equal grip'
+      ],
+      'Range of Motion': [
+        'Full extension at the top',
+        'Bar to the floor',
+        'Complete the movement',
+        'Full hip extension'
+      ],
+      'Speed': [
+        'Control the descent',
+        'Slow and controlled',
+        'Don\'t drop the bar',
+        'Maintain control throughout'
+      ]
+    },
     'Performance': [
-      'Focus on the hip hinge',
       'Drive through your heels',
-      'Full extension at the top',
-      'Slow down, control the movement'
+      'Hip hinge movement',
+      'Engage your glutes',
+      'Keep the bar close',
+      'Push the floor away'
     ],
     'Safety': [
       'Keep your back straight',
       'Chest up, shoulders back',
       'Keep the bar close to your body',
-      'Engage your core'
-    ],
-    'Motivation': [
-      'Great technique!',
-      'Keep it going!',
-      'Strong lift!',
-      'Perfect form!'
-    ]
-  },
-  'squats': {
-    'Performance': [
-      'Go down to parallel or below',
-      'Drive through your heels',
-      'Full range of motion',
-      'Control the descent',
-      'Keep your weight balanced'
-    ],
-    'Safety': [
-      'Keep your knees behind your toes',
-      'Chest up, back straight',
-      'Keep your core engaged'
-    ],
-    'Motivation': [
-      'Great depth!',
-      'Keep pushing!',
-      'Excellent form!',
-      'You\'re doing great!'
+      'Engage your core',
+      'Maintain neutral spine'
     ]
   }
 };
@@ -406,10 +400,10 @@ function updateFeedbackButtons(exercise) {
   }
   
   const feedbacks = exerciseFeedback[exercise];
-  const categories = ['Performance', 'Safety', 'Motivation'];
+  const categories = ['Technique', 'Performance', 'Safety'];
   
   categories.forEach((category) => {
-    if (!feedbacks[category] || feedbacks[category].length === 0) return;
+    if (!feedbacks[category]) return;
     
     // Create category container
     const categoryContainer = document.createElement('div');
@@ -425,13 +419,49 @@ function updateFeedbackButtons(exercise) {
     const categoryButtons = document.createElement('div');
     categoryButtons.className = 'feedback-category-buttons';
     
-    feedbacks[category].forEach((feedback) => {
-      const button = document.createElement('button');
-      button.className = 'feedback-btn';
-      button.textContent = feedback;
-      button.onclick = () => sendFeedback(feedback);
-      categoryButtons.appendChild(button);
-    });
+    // Check if this is Technique category with subcategories
+    if (category === 'Technique' && typeof feedbacks[category] === 'object' && !Array.isArray(feedbacks[category])) {
+      // Handle Technique subcategories (Symmetry, Range of Motion, Speed)
+      const subcategories = ['Symmetry', 'Range of Motion', 'Speed'];
+      
+      subcategories.forEach((subcategory) => {
+        if (!feedbacks[category][subcategory] || feedbacks[category][subcategory].length === 0) return;
+        
+        // Create subcategory container
+        const subcategoryContainer = document.createElement('div');
+        subcategoryContainer.className = 'feedback-subcategory';
+        
+        // Create subcategory header
+        const subcategoryHeader = document.createElement('div');
+        subcategoryHeader.className = 'feedback-subcategory-header';
+        subcategoryHeader.textContent = subcategory;
+        subcategoryContainer.appendChild(subcategoryHeader);
+        
+        // Create subcategory buttons
+        const subcategoryButtons = document.createElement('div');
+        subcategoryButtons.className = 'feedback-subcategory-buttons';
+        
+        feedbacks[category][subcategory].forEach((feedback) => {
+          const button = document.createElement('button');
+          button.className = 'feedback-btn';
+          button.textContent = feedback;
+          button.onclick = () => sendFeedback(feedback);
+          subcategoryButtons.appendChild(button);
+        });
+        
+        subcategoryContainer.appendChild(subcategoryButtons);
+        categoryButtons.appendChild(subcategoryContainer);
+      });
+    } else {
+      // Handle regular categories (Performance, Safety) - simple arrays
+      feedbacks[category].forEach((feedback) => {
+        const button = document.createElement('button');
+        button.className = 'feedback-btn';
+        button.textContent = feedback;
+        button.onclick = () => sendFeedback(feedback);
+        categoryButtons.appendChild(button);
+      });
+    }
     
     categoryContainer.appendChild(categoryButtons);
     feedbackButtons.appendChild(categoryContainer);
@@ -485,10 +515,8 @@ function syncExercise(exercise) {
   if (!callDoc) return;
   
   const exerciseNames = {
-    'shoulder-press': 'Shoulder Press',
-    'bench-press': 'Bench Press',
-    'deadlift': 'Deadlift',
-    'squats': 'Squats'
+    'lat-pulldown': 'Lat Pulldown',
+    'deadlift': 'Deadlift'
   };
   
   const exerciseName = exercise ? exerciseNames[exercise] || 'Not selected' : 'Not selected';
@@ -564,10 +592,8 @@ endSetButton.addEventListener('click', async () => {
   // Get current exercise info
   const exerciseType = exerciseSelect.value;
   const exerciseNames = {
-    'shoulder-press': 'Shoulder Press',
-    'bench-press': 'Bench Press',
-    'deadlift': 'Deadlift',
-    'squats': 'Squats'
+    'lat-pulldown': 'Lat Pulldown',
+    'deadlift': 'Deadlift'
   };
   const exerciseName = exerciseNames[exerciseType] || 'Unknown';
   
