@@ -203,17 +203,29 @@ async function startNewSession() {
         if (repCountDisplay) repCountDisplay.textContent = repCount;
       }
       
-      // Update exercise (sync from feedback coach)
+      // Update exercise (sync from client - client now controls exercise selection)
       if (data.currentExercise) {
         const exerciseNames = {
-          'lat-pulldown': 'Lat Pulldown',
-          'deadlift': 'Deadlift'
+          'Lat Pulldown': 'lat-pulldown',
+          'Deadlift': 'deadlift'
         };
-        const exerciseValue = Object.keys(exerciseNames).find(
-          key => exerciseNames[key] === data.currentExercise
-        );
+        const exerciseValue = exerciseNames[data.currentExercise] || 
+          Object.keys(exerciseNames).find(key => exerciseNames[key] === data.currentExercise);
+        
         if (exerciseValue && exerciseSelect && exerciseSelect.value !== exerciseValue) {
           exerciseSelect.value = exerciseValue;
+          console.log('Exercise updated from client:', data.currentExercise);
+        } else if (!exerciseValue && data.currentExercise) {
+          // Try partial match
+          const latMatch = data.currentExercise.toLowerCase().includes('lat') || 
+                          data.currentExercise.toLowerCase().includes('pulldown');
+          const deadliftMatch = data.currentExercise.toLowerCase().includes('deadlift');
+          
+          if (latMatch && exerciseSelect && exerciseSelect.value !== 'lat-pulldown') {
+            exerciseSelect.value = 'lat-pulldown';
+          } else if (deadliftMatch && exerciseSelect && exerciseSelect.value !== 'deadlift') {
+            exerciseSelect.value = 'deadlift';
+          }
         }
       }
       
@@ -335,17 +347,29 @@ async function joinExistingSession(joinKey) {
         if (repCountDisplay) repCountDisplay.textContent = repCount;
       }
       
-      // Update exercise
+      // Update exercise (sync from client - client now controls exercise selection)
       if (data.currentExercise) {
         const exerciseNames = {
-          'lat-pulldown': 'Lat Pulldown',
-          'deadlift': 'Deadlift'
+          'Lat Pulldown': 'lat-pulldown',
+          'Deadlift': 'deadlift'
         };
-        const exerciseValue = Object.keys(exerciseNames).find(
-          key => exerciseNames[key] === data.currentExercise
-        );
+        const exerciseValue = exerciseNames[data.currentExercise] || 
+          Object.keys(exerciseNames).find(key => exerciseNames[key] === data.currentExercise);
+        
         if (exerciseValue && exerciseSelect && exerciseSelect.value !== exerciseValue) {
           exerciseSelect.value = exerciseValue;
+          console.log('Exercise updated from client:', data.currentExercise);
+        } else if (!exerciseValue && data.currentExercise) {
+          // Try partial match
+          const latMatch = data.currentExercise.toLowerCase().includes('lat') || 
+                          data.currentExercise.toLowerCase().includes('pulldown');
+          const deadliftMatch = data.currentExercise.toLowerCase().includes('deadlift');
+          
+          if (latMatch && exerciseSelect && exerciseSelect.value !== 'lat-pulldown') {
+            exerciseSelect.value = 'lat-pulldown';
+          } else if (deadliftMatch && exerciseSelect && exerciseSelect.value !== 'deadlift') {
+            exerciseSelect.value = 'deadlift';
+          }
         }
       }
       
@@ -525,35 +549,23 @@ function syncRepCount() {
   });
 }
 
-// Sync exercise to Firestore
+// Sync exercise to Firestore - DEPRECATED: Client now controls exercise selection
+// This function is kept for backward compatibility but should not be called
 function syncExercise(exercise) {
-  if (!callDoc) return;
-  
-  const exerciseNames = {
-    'lat-pulldown': 'Lat Pulldown',
-    'deadlift': 'Deadlift'
-  };
-  
-  const exerciseName = exercise ? exerciseNames[exercise] || 'Not selected' : 'Not selected';
-  
-  callDoc.set({
-    currentExercise: exerciseName,
-    exerciseUpdated: firebase.firestore.FieldValue.serverTimestamp()
-  }, { merge: true }).catch((error) => {
-    console.error('Error syncing exercise:', error);
-  });
+  console.warn('syncExercise called but exercise is now controlled by client');
+  // Do not sync - client controls exercise selection
+  return;
 }
 
-// Exercise selection handler
+// Exercise selection handler - DISABLED: Client now controls exercise selection
+// Coach's exercise selector is now read-only and reflects client's choice
 if (exerciseSelect) {
-  exerciseSelect.addEventListener('change', (e) => {
-    const exercise = e.target.value;
-    // Reset rep counter when exercise changes
-    repCount = 0;
-    if (repCountDisplay) repCountDisplay.textContent = '0';
-    syncRepCount();
-    syncExercise(exercise);
-  });
+  // Disable the exercise selector - client controls it now
+  exerciseSelect.disabled = true;
+  exerciseSelect.title = 'Exercise is selected by the client';
+  
+  // Remove the old change listener since client controls exercise now
+  // The exercise will be updated via the callDoc.onSnapshot listener
 }
 
 // Rep counter handlers

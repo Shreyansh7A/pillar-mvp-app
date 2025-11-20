@@ -45,7 +45,7 @@ const sessionSection = document.getElementById('sessionSection');
 const statusMessage = document.getElementById('statusMessage');
 const clientRepCount = document.getElementById('clientRepCount');
 const clientRepCounter = document.querySelector('.client-rep-counter');
-const clientExerciseName = document.getElementById('clientExerciseName');
+const clientExerciseSelect = document.getElementById('clientExerciseSelect');
 const clientSummaryPanel = document.getElementById('clientSummaryPanel');
 const summaryContent = document.getElementById('summaryContent');
 const closeSummaryButton = document.getElementById('closeSummaryButton');
@@ -193,11 +193,12 @@ joinButton.onclick = async () => {
           updateClientRepCount(0);
         }
         
-        // Update exercise
+        // Update exercise display from Firestore
+        // Note: Client controls exercise selection, so this just reflects what's in Firestore
         if (data.currentExercise) {
           updateClientExercise(data.currentExercise);
         } else {
-          updateClientExercise('Detecting exercise');
+          updateClientExercise('');
         }
         
         // Check for set status changes
@@ -519,11 +520,63 @@ function updateClientRepCount(count) {
   }
 }
 
-// Update client exercise display
+// Update client exercise display - updates the dropdown to reflect current exercise
 function updateClientExercise(exerciseName) {
-  if (clientExerciseName) {
-    clientExerciseName.textContent = exerciseName;
+  if (!clientExerciseSelect) return;
+  
+  if (exerciseName) {
+    const exerciseNames = {
+      'Lat Pulldown': 'lat-pulldown',
+      'Deadlift': 'deadlift'
+    };
+    
+    // Find the matching value
+    const matchingValue = exerciseNames[exerciseName];
+    
+    if (matchingValue && clientExerciseSelect.value !== matchingValue) {
+      clientExerciseSelect.value = matchingValue;
+    } else if (!matchingValue) {
+      // If exercise name doesn't match exactly, try to find by partial match
+      const latMatch = exerciseName.toLowerCase().includes('lat') || exerciseName.toLowerCase().includes('pulldown');
+      const deadliftMatch = exerciseName.toLowerCase().includes('deadlift');
+      
+      if (latMatch && clientExerciseSelect.value !== 'lat-pulldown') {
+        clientExerciseSelect.value = 'lat-pulldown';
+      } else if (deadliftMatch && clientExerciseSelect.value !== 'deadlift') {
+        clientExerciseSelect.value = 'deadlift';
+      }
+    }
+  } else {
+    clientExerciseSelect.value = '';
   }
+}
+
+// Sync exercise selection from client to Firestore
+function syncClientExercise(exercise) {
+  if (!callDoc) {
+    console.warn('Cannot sync exercise: callDoc not initialized');
+    return;
+  }
+  
+  const exerciseNames = {
+    'lat-pulldown': 'Lat Pulldown',
+    'deadlift': 'Deadlift'
+  };
+  
+  const exerciseName = exercise ? exerciseNames[exercise] || 'Not selected' : 'Not selected';
+  
+  console.log('Client syncing exercise to Firestore:', exerciseName);
+  
+  callDoc.set({
+    currentExercise: exerciseName,
+    exerciseUpdated: firebase.firestore.FieldValue.serverTimestamp()
+  }, { merge: true }).then(() => {
+    console.log('Exercise synced to Firestore:', exerciseName);
+    // Update local display immediately
+    updateClientExercise(exerciseName);
+  }).catch((error) => {
+    console.error('Error syncing exercise:', error);
+  });
 }
 
 // Update client summary display
@@ -558,6 +611,15 @@ function updateClientSummary(summary) {
 if (closeSummaryButton) {
   closeSummaryButton.addEventListener('click', () => {
     clientSummaryPanel.classList.add('hidden');
+  });
+}
+
+// Client Exercise Selector
+if (clientExerciseSelect) {
+  clientExerciseSelect.addEventListener('change', (e) => {
+    const exercise = e.target.value;
+    console.log('Client selected exercise:', exercise);
+    syncClientExercise(exercise);
   });
 }
 
@@ -766,7 +828,13 @@ function handleSetStatusChange(status, timestamp, summary) {
     
     // Store summary for this set
     if (summary && Array.isArray(summary) && summary.length > 0) {
-      const currentExercise = clientExerciseName ? clientExerciseName.textContent : 'Unknown Exercise';
+      // Get current exercise from dropdown
+      const exerciseNames = {
+        'lat-pulldown': 'Lat Pulldown',
+        'deadlift': 'Deadlift'
+      };
+      const currentExerciseValue = clientExerciseSelect ? clientExerciseSelect.value : '';
+      const currentExercise = exerciseNames[currentExerciseValue] || 'Unknown Exercise';
       const currentReps = clientRepCount ? parseInt(clientRepCount.textContent) || 0 : 0;
       
       allSessionSummaries.push({

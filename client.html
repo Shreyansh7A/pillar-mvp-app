@@ -35,9 +35,16 @@
         </div>
 
         <div class="session-section hidden" id="sessionSection">
-          <!-- Exercise Name at Top -->
+          <!-- Exercise Selection at Top -->
           <div class="client-exercise-header">
-            <div id="clientExerciseName" class="client-exercise-name-top">Detecting exercise</div>
+            <div class="client-exercise-selector">
+              <label for="clientExerciseSelect" class="client-exercise-label">Select Exercise</label>
+              <select id="clientExerciseSelect" class="client-exercise-select">
+                <option value="">Select Exercise</option>
+                <option value="lat-pulldown">Lat Pulldown</option>
+                <option value="deadlift">Deadlift</option>
+              </select>
+            </div>
           </div>
           
           <div class="video-container client-video-container">
