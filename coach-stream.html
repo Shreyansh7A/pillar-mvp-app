@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Pillar - Coach</title>
+    <title>Pillar - Stream Coach</title>
   </head>
   <body class="coach-page">
     <div class="container">
@@ -17,38 +17,44 @@
             <span class="session-code-label">Session Code:</span>
             <span id="sessionCodeDisplay" class="session-code-value"></span>
           </div>
-                <div class="session-header-right">
-                  <div class="session-status">
-                    <span id="connectionStatus" class="status-indicator">• Waiting for client</span>
-                  </div>
-                  <button id="startButtonHeader" class="btn btn-primary btn-small">
-                    <span class="btn-text">Start Session</span>
-                  </button>
-                  <button id="hangupButtonHeader" class="btn btn-secondary btn-small hidden">
-                    <span class="btn-text">End Session</span>
-                  </button>
-                </div>
+          <div class="session-header-right">
+            <div class="session-status">
+              <span id="connectionStatus" class="status-indicator">• Waiting for client</span>
+            </div>
+            <button id="hangupButtonHeader" class="btn btn-secondary btn-small hidden">
+              <span class="btn-text">End Session</span>
+            </button>
+          </div>
         </div>
 
-        <h1 class="page-title">Coach Session</h1>
+        <h1 class="page-title">Stream Coach</h1>
         
-        <!-- Coach Role Selection -->
+        <!-- Coach Mode Selection -->
         <div class="coach-mode-selection" id="coachModeSelection">
           <div class="mode-cards">
-            <div class="mode-card" id="streamCoachCard">
-              <h2 class="mode-title">Stream Coach</h2>
-              <p class="mode-description">Watch client video, control reps and sets</p>
-              <a href="coach-stream.html" class="btn btn-primary">
-                <span class="btn-text">Go to Stream Coach</span>
-              </a>
+            <div class="mode-card" id="createSessionCard">
+              <h2 class="mode-title">Create Session</h2>
+              <p class="mode-description">Start a new coaching session</p>
+              <button id="createSessionButton" class="btn btn-primary">
+                <span class="btn-text">Create Session</span>
+              </button>
             </div>
             
-            <div class="mode-card" id="feedbackCoachCard">
-              <h2 class="mode-title">Feedback Coach</h2>
-              <p class="mode-description">Focus on giving real-time feedback</p>
-              <a href="coach-feedback.html" class="btn btn-primary">
-                <span class="btn-text">Go to Feedback Coach</span>
-              </a>
+            <div class="mode-card" id="joinSessionCard">
+              <h2 class="mode-title">Join Session</h2>
+              <p class="mode-description">Join an existing session as stream coach</p>
+              <div class="join-input-group">
+                <input 
+                  type="text" 
+                  id="coachJoinKeyInput" 
+                  class="input-field" 
+                  placeholder="Enter session code"
+                  autocomplete="off"
+                />
+                <button id="joinSessionButton" class="btn btn-primary">
+                  <span class="btn-text">Join</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -87,8 +93,11 @@
                   <div class="video-label">Client</div>
                 </div>
               </div>
-              
-              <!-- Set Buttons Below Video -->
+            </div>
+
+            <!-- Right: Set Controls and Session History -->
+            <div class="stream-controls-section">
+              <!-- Set Buttons -->
               <div class="set-buttons-container">
                 <button id="startSetButton" class="btn btn-primary start-set-btn">
                   <span class="btn-text">Start Set</span>
@@ -97,20 +106,20 @@
                   <span class="btn-text">End Set</span>
                 </button>
               </div>
-            </div>
 
-            <!-- Right: Feedback Buttons -->
-            <div class="feedback-section">
-              <div class="dashboard-panel feedback-panel">
-                <label class="panel-label">Feedback</label>
-                <div id="feedbackButtons" class="feedback-buttons">
-                  <p class="no-exercise-message">Select an exercise to see feedback options</p>
+              <!-- Session History -->
+              <div class="dashboard-panel session-history-panel" id="sessionHistoryPanel">
+                <div class="summary-header">
+                  <label class="panel-label">Session History</label>
+                </div>
+                <div id="sessionHistoryContent" class="summary-content">
+                  <p class="no-summary-message">No sets completed yet</p>
                 </div>
               </div>
             </div>
           </div>
 
-          <!-- Coach Summary and Session History - Below Main Content -->
+          <!-- Coach Summary - Below Main Content (only shown after set ends) -->
           <div class="coach-bottom-panels">
             <!-- Coach Summary -->
             <div class="dashboard-panel coach-summary-panel hidden" id="coachSummaryPanel">
@@ -120,16 +129,6 @@
               </div>
               <div id="coachSummaryContent" class="summary-content">
                 <p class="no-summary-message">No feedback yet</p>
-              </div>
-            </div>
-
-            <!-- Session History -->
-            <div class="dashboard-panel session-history-panel" id="sessionHistoryPanel">
-              <div class="summary-header">
-                <label class="panel-label">Session History</label>
-              </div>
-              <div id="sessionHistoryContent" class="summary-content">
-                <p class="no-summary-message">No sets completed yet</p>
               </div>
             </div>
           </div>
@@ -176,7 +175,7 @@
       </div>
     </div>
 
-    <script type="module" src="/coach.js"></script>
+    <script type="module" src="/coach-stream.js"></script>
   </body>
 </html>
 

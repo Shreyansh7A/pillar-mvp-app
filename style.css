@@ -177,6 +177,11 @@ body::before {
   min-height: 500px;
 }
 
+.coach-video-portrait .video-wrapper {
+  aspect-ratio: 9 / 16;
+  min-height: 0;
+}
+
 /* Client video container - optimized for mobile landscape */
 .client-video-container {
   display: flex;
@@ -1013,9 +1018,44 @@ body::before {
   display: none;
 }
 
+/* Coach Top Controls Bar */
+.coach-top-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 2rem;
+  margin-bottom: 2rem;
+  padding: 1.5rem;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+}
+
+.top-control-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  flex: 1;
+}
+
+.top-control-label {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.rep-counter-top {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+}
+
 .dashboard-main {
   display: grid;
-  grid-template-columns: 3fr 1fr;
+  grid-template-columns: 1fr 1fr;
   gap: 2rem;
   align-items: start;
 }
@@ -1023,7 +1063,141 @@ body::before {
 .session-section {
   display: flex;
   flex-direction: column;
-  gap: 0;
+  gap: 1.5rem;
+  height: 100%;
+  align-items: stretch;
+}
+
+/* Stream Controls Section - Right side of video */
+.stream-controls-section {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  height: 100%;
+}
+
+.coach-video-portrait {
+  aspect-ratio: 9 / 16;
+  max-width: 400px;
+  margin: 0 auto;
+}
+
+.coach-video-portrait .video-wrapper {
+  width: 100%;
+  height: 100%;
+}
+
+.coach-video-portrait video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.set-buttons-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  width: 100%;
+}
+
+.stream-controls-section .set-buttons-container {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+}
+
+.feedback-section {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.feedback-section-full {
+  width: 100%;
+  max-width: 100%;
+}
+
+.feedback-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.feedback-panel .panel-label {
+  flex-shrink: 0;
+}
+
+.feedback-panel .feedback-buttons {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+  padding: 1rem 0;
+}
+
+/* Feedback Categories Grid - 4 columns horizontal */
+.feedback-categories-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1.5rem;
+  width: 100%;
+  height: 100%;
+}
+
+/* Feedback Category Column - vertical layout */
+.feedback-category-column {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 1rem;
+  background: var(--bg-secondary);
+}
+
+.feedback-category-column .feedback-category-header {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding-bottom: 0.75rem;
+  margin-bottom: 1rem;
+  border-bottom: 2px solid var(--border-color);
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.feedback-category-column .feedback-category-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.coach-bottom-panels {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  margin-top: 2rem;
+  width: 100%;
+  max-width: 100%;
+}
+
+.stream-controls-section .session-history-panel {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.stream-controls-section .session-history-panel .summary-content {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
 }
 
 .dashboard-sidebar {
@@ -1082,6 +1256,13 @@ body::before {
   margin-bottom: 1.5rem;
 }
 
+.rep-counter-top {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+}
+
 .rep-count {
   font-size: 3rem;
   font-weight: 600;
@@ -1128,11 +1309,7 @@ body::before {
   width: 100%;
 }
 
-/* Feedback Buttons */
-.feedback-panel {
-  max-height: 400px;
-  overflow-y: auto;
-}
+/* Feedback Buttons - Duplicate removed, using the one above */
 
 .feedback-panel-horizontal {
   max-height: none;
@@ -1154,6 +1331,7 @@ body::before {
   align-items: flex-start;
 }
 
+/* Legacy feedback-category styles (for coach.html if still used) */
 .feedback-category {
   display: flex;
   flex-direction: column;
@@ -1183,8 +1361,39 @@ body::before {
   flex-direction: column;
   gap: 0.5rem;
   margin-bottom: 1rem;
-  padding-left: 1rem;
-  border-left: 2px solid var(--border-color);
+}
+
+.feedback-category-column .feedback-subcategory {
+  margin-bottom: 1.5rem;
+}
+
+.feedback-category-column .feedback-subcategory-header {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  text-transform: capitalize;
+  padding-bottom: 0.5rem;
+  margin-bottom: 0.5rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.feedback-category-column .feedback-subcategory-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+/* Ensure feedback buttons in columns are full width */
+.feedback-category-column .feedback-btn {
+  width: 100%;
+  text-align: left;
+  padding: 0.75rem 1rem;
+  white-space: normal;
+  word-wrap: break-word;
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
 }
 
 .feedback-subcategory-header {
@@ -1249,6 +1458,63 @@ body::before {
 
 .feedback-panel::-webkit-scrollbar-thumb:hover {
   background: var(--accent-secondary);
+}
+
+/* Coach Mode Selection */
+.coach-mode-selection {
+  width: 100%;
+  max-width: 1200px;
+  margin: 2rem auto;
+}
+
+.mode-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 2rem;
+  margin-top: 2rem;
+}
+
+.mode-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 20px;
+  padding: 2.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.mode-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+}
+
+.mode-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.mode-description {
+  font-size: 1rem;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.join-input-group {
+  display: flex;
+  gap: 0.75rem;
+  align-items: stretch;
+}
+
+.join-input-group .input-field {
+  flex: 1;
+}
+
+.join-input-group .btn {
+  white-space: nowrap;
 }
 
 /* Responsive */

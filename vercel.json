@@ -10,12 +10,24 @@
       "destination": "/coach.html"
     },
     {
+      "source": "/coach-stream.html",
+      "destination": "/coach-stream.html"
+    },
+    {
+      "source": "/coach-feedback.html",
+      "destination": "/coach-feedback.html"
+    },
+    {
       "source": "/client.html",
       "destination": "/client.html"
     },
     {
       "source": "/summary.html",
       "destination": "/summary.html"
+    },
+    {
+      "source": "/api/(.*)",
+      "destination": "/api/$1"
     },
     {
       "source": "/((?!assets/).*)",

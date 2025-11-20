@@ -29,7 +29,8 @@ const servers = {
 };
 
 // Global State
-let pc = null;
+let pc = null; // Primary peer connection (to first coach)
+let pc2 = null; // Secondary peer connection (to second coach, if exists)
 let localStream = null;
 let callDoc = null;
 let sessionDoc = null; // Session document reference
@@ -95,6 +96,9 @@ joinButton.onclick = async () => {
     return;
   }
   
+  // Unlock speech synthesis on user interaction (required for mobile)
+  unlockSpeechSynthesis();
+  
   // Store join key in localStorage
   localStorage.setItem('clientJoinKey', callId);
 
@@ -109,7 +113,7 @@ joinButton.onclick = async () => {
   try {
     showStatus('Joining session...', 'info');
     
-    // Unlock speech synthesis with user interaction
+    // Unlock speech synthesis on user interaction
     unlockSpeechSynthesis();
     
     // Get user media
@@ -155,26 +159,6 @@ joinButton.onclick = async () => {
     // Track processed message IDs to avoid duplicates
     const processedMessages = new Set();
     
-    // Ensure speech synthesis is ready and unlocked
-    if ('speechSynthesis' in window) {
-      // Wait for voices to load
-      const loadVoices = () => {
-        const voices = window.speechSynthesis.getVoices();
-        console.log('Speech synthesis ready. Voices available:', voices.length);
-        if (voices.length > 0) {
-          voices.forEach((voice, index) => {
-            console.log(`Voice ${index}: ${voice.name} (${voice.lang})`);
-          });
-        }
-      };
-      
-      if (window.speechSynthesis.getVoices().length > 0) {
-        loadVoices();
-      } else {
-        window.speechSynthesis.onvoiceschanged = loadVoices;
-      }
-    }
-    
     feedbackCollection.onSnapshot((snapshot) => {
       snapshot.docChanges().forEach((change) => {
         if (change.type === 'added') {
@@ -189,10 +173,10 @@ joinButton.onclick = async () => {
           const data = change.doc.data();
           if (data.message) {
             console.log('Received feedback message:', data.message);
-            // Small delay to ensure everything is ready
+            // Small delay to ensure everything is ready, especially for mobile
             setTimeout(() => {
               speakFeedback(data.message);
-            }, 100);
+            }, 200);
           }
         }
       });
@@ -235,6 +219,7 @@ joinButton.onclick = async () => {
       return;
     }
 
+    // Connect to first coach
     pc.onicecandidate = (event) => {
       event.candidate && answerCandidates.add(event.candidate.toJSON());
     };
@@ -260,6 +245,59 @@ joinButton.onclick = async () => {
           pc.addIceCandidate(new RTCIceCandidate(data));
         }
       });
+    });
+    
+    // Listen for second coach joining (transparent to client)
+    callDoc.onSnapshot(async (snapshot) => {
+      const data = snapshot.data();
+      if (!data) return;
+      
+      // If there's a second offer and we haven't connected to second coach yet
+      if (data.offer2 && !pc2) {
+        // Create second peer connection for second coach
+        pc2 = new RTCPeerConnection(servers);
+        
+        // Add local tracks to second connection
+        localStream.getTracks().forEach((track) => {
+          pc2.addTrack(track, localStream);
+        });
+        
+        // Handle ICE candidates for second coach
+        pc2.onicecandidate = (event) => {
+          if (event.candidate) {
+            // Use same answerCandidates collection (both coaches listen to it)
+            answerCandidates.add(event.candidate.toJSON());
+          }
+        };
+        
+        // Set remote description from second coach's offer
+        const offer2Description = new RTCSessionDescription(data.offer2);
+        await pc2.setRemoteDescription(offer2Description);
+        
+        // Create answer for second coach
+        const answer2Description = await pc2.createAnswer();
+        await pc2.setLocalDescription(answer2Description);
+        
+        // Store answer2 in callDoc
+        await callDoc.update({ 
+          answer2: {
+            type: answer2Description.type,
+            sdp: answer2Description.sdp,
+          }
+        });
+        
+        // Listen for ICE candidates from second coach
+        offerCandidates.onSnapshot((snapshot) => {
+          snapshot.docChanges().forEach((change) => {
+            if (change.type === 'added') {
+              const candidate = new RTCIceCandidate(change.doc.data());
+              if (pc2 && pc2.remoteDescription) {
+                pc2.addIceCandidate(candidate);
+              }
+            }
+          });
+        });
+      }
     });
 
     joinButton.disabled = true;
@@ -318,6 +356,11 @@ function leaveSession() {
   }
   if (pc) {
     pc.close();
+    pc = null;
+  }
+  if (pc2) {
+    pc2.close();
+    pc2 = null;
   }
   
   localVideo.srcObject = null;
@@ -358,29 +401,35 @@ function showStatus(message, type = 'info') {
   }
 }
 
-// Track if speech synthesis is unlocked (required on mobile)
-let speechUnlocked = false;
+// Track if speech synthesis is unlocked (for mobile browsers)
+let speechSynthesisUnlocked = false;
 
-// Unlock speech synthesis (must be called from user interaction)
+// Unlock speech synthesis on user interaction (required for mobile browsers)
 function unlockSpeechSynthesis() {
-  if (!('speechSynthesis' in window)) {
-    console.warn('Speech synthesis not supported');
+  if (!('speechSynthesis' in window) || speechSynthesisUnlocked) {
     return;
   }
-  
-  if (speechUnlocked) return;
-  
+
   try {
-    // Create a silent test utterance to unlock speech synthesis
-    const testUtterance = new SpeechSynthesisUtterance('');
-    testUtterance.volume = 0;
-    testUtterance.text = '';
-    window.speechSynthesis.speak(testUtterance);
-    window.speechSynthesis.cancel(); // Cancel immediately
-    speechUnlocked = true;
-    console.log('Speech synthesis unlocked');
+    // Create a silent utterance to unlock speech synthesis
+    const utterance = new SpeechSynthesisUtterance('');
+    utterance.volume = 0;
+    utterance.onstart = () => {
+      speechSynthesisUnlocked = true;
+      console.log('Speech synthesis unlocked');
+    };
+    utterance.onerror = () => {
+      // Even if it errors, we can try to use it
+      speechSynthesisUnlocked = true;
+    };
+    window.speechSynthesis.speak(utterance);
+    // Cancel immediately
+    setTimeout(() => {
+      window.speechSynthesis.cancel();
+    }, 10);
   } catch (error) {
-    console.error('Error unlocking speech synthesis:', error);
+    console.log('Error unlocking speech synthesis:', error);
+    speechSynthesisUnlocked = true; // Try anyway
   }
 }
 
@@ -396,8 +445,8 @@ function speakFeedback(message) {
     return;
   }
 
-  // Ensure speech is unlocked
-  if (!speechUnlocked) {
+  // Unlock speech synthesis if not already unlocked
+  if (!speechSynthesisUnlocked) {
     unlockSpeechSynthesis();
   }
 
@@ -405,139 +454,61 @@ function speakFeedback(message) {
     // Cancel any ongoing speech
     if (window.speechSynthesis.speaking) {
       window.speechSynthesis.cancel();
-      // Wait a bit for cancellation to complete
-      setTimeout(() => {
-        speakMessage(message);
-      }, 150);
-    } else {
-      speakMessage(message);
-    }
-  } catch (error) {
-    console.error('Error with speech synthesis:', error);
-  }
-}
-
-function speakMessage(message) {
-  try {
-    // Get voices - may need to wait for them to load
-    let voices = window.speechSynthesis.getVoices();
-    
-    // If no voices yet, wait a bit and try again
-    if (voices.length === 0) {
-      console.log('No voices available yet, waiting...');
-      setTimeout(() => {
-        voices = window.speechSynthesis.getVoices();
-        if (voices.length > 0) {
-          createAndSpeak(message, voices);
-        } else {
-          // Try without voice selection
-          console.log('Still no voices, trying without voice selection');
-          createAndSpeak(message, []);
-        }
-      }, 200);
-      return;
     }
     
-    createAndSpeak(message, voices);
-  } catch (error) {
-    console.error('Error creating speech utterance:', error);
-  }
-}
-
-function createAndSpeak(message, voices) {
-  try {
-    const utterance = new SpeechSynthesisUtterance(message);
-    
-    // Configure speech properties
-    utterance.rate = 1.0;
-    utterance.pitch = 1.0;
-    utterance.volume = 1.0;
-    utterance.lang = 'en-US';
-    
-    // Try to use a better voice if available
-    if (voices && voices.length > 0) {
-      // Prefer English voices, especially local ones
-      const englishVoice = voices.find(voice => 
-        voice.lang.startsWith('en') && voice.localService
-      ) || voices.find(voice => voice.lang.startsWith('en')) || voices[0];
+    // Wait a bit for voices to load (especially on mobile)
+    const speak = () => {
+      const utterance = new SpeechSynthesisUtterance(message);
+      utterance.rate = 1.0;
+      utterance.pitch = 1.0;
+      utterance.volume = 1.0;
+      utterance.lang = 'en-US';
       
-      if (englishVoice) {
-        utterance.voice = englishVoice;
-        console.log('Using voice:', englishVoice.name, englishVoice.lang);
-      }
-    }
-    
-    // Error handling with detailed logging
-    utterance.onerror = (event) => {
-      console.error('Speech synthesis error:', event.error, event);
-      // Try fallback without voice selection
-      if (event.error !== 'not-allowed') {
-        try {
-          const fallbackUtterance = new SpeechSynthesisUtterance(message);
-          fallbackUtterance.rate = 1.0;
-          fallbackUtterance.pitch = 1.0;
-          fallbackUtterance.volume = 1.0;
-          window.speechSynthesis.speak(fallbackUtterance);
-          console.log('Using fallback utterance');
-        } catch (e) {
-          console.error('Fallback speech also failed:', e);
+      // Try to select a good voice
+      const voices = window.speechSynthesis.getVoices();
+      if (voices.length > 0) {
+        // Prefer English voices
+        const englishVoice = voices.find(voice => 
+          voice.lang.startsWith('en') && voice.localService
+        ) || voices.find(voice => voice.lang.startsWith('en')) || voices[0];
+        
+        if (englishVoice) {
+          utterance.voice = englishVoice;
         }
       }
+      
+      utterance.onstart = () => {
+        console.log('Speech started:', message);
+      };
+      
+      utterance.onend = () => {
+        console.log('Speech completed:', message);
+      };
+      
+      utterance.onerror = (error) => {
+        console.error('Speech synthesis error:', error);
+      };
+      
+      window.speechSynthesis.speak(utterance);
+      console.log('Speaking feedback:', message);
     };
     
-    utterance.onstart = () => {
-      console.log('Speech started:', message);
-    };
-    
-    utterance.onend = () => {
-      console.log('Speech completed:', message);
-    };
-    
-    utterance.onpause = () => {
-      console.log('Speech paused');
-    };
-    
-    utterance.onresume = () => {
-      console.log('Speech resumed');
-    };
-    
-    // Speak the message
-    window.speechSynthesis.speak(utterance);
-    
-    // Log for debugging
-    console.log('Attempting to speak:', message);
-    console.log('   Voices available:', voices?.length || 0);
-    console.log('   Currently speaking:', window.speechSynthesis.speaking);
-    console.log('   Pending:', window.speechSynthesis.pending);
-  } catch (error) {
-    console.error('Error creating speech utterance:', error);
-    // Last resort: try without any configuration
-    try {
-      const simpleUtterance = new SpeechSynthesisUtterance(message);
-      window.speechSynthesis.speak(simpleUtterance);
-      console.log('Using simple utterance as fallback');
-    } catch (e) {
-      console.error('All speech attempts failed:', e);
-    }
-  }
-}
-
-// Load voices when available (some browsers load voices asynchronously)
-if ('speechSynthesis' in window) {
-  const checkVoices = () => {
+    // If voices are loaded, speak immediately, otherwise wait
     const voices = window.speechSynthesis.getVoices();
-    console.log('Voices loaded:', voices.length);
     if (voices.length > 0) {
-      voices.forEach((voice, index) => {
-        console.log(`Voice ${index}: ${voice.name} (${voice.lang}) - Local: ${voice.localService}`);
-      });
+      // Small delay to ensure everything is ready
+      setTimeout(speak, 50);
+    } else {
+      // Wait for voices to load
+      window.speechSynthesis.onvoiceschanged = () => {
+        speak();
+        window.speechSynthesis.onvoiceschanged = null;
+      };
+      // Fallback timeout
+      setTimeout(speak, 500);
     }
-  };
-  
-  if (window.speechSynthesis.getVoices().length > 0) {
-    checkVoices();
-  } else {
-    window.speechSynthesis.onvoiceschanged = checkVoices;
+  } catch (error) {
+    console.error('Speech synthesis failed:', error);
   }
 }
 

@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pillar - Feedback Coach</title>
+  </head>
+  <body class="coach-page">
+    <div class="container">
+      <a href="index.html" class="brand">Pillar</a>
+      
+      <div class="main-content">
+        <!-- Session Header -->
+        <div class="session-header hidden" id="sessionHeader">
+          <div class="session-code">
+            <span class="session-code-label">Session Code:</span>
+            <span id="sessionCodeDisplay" class="session-code-value"></span>
+          </div>
+          <div class="session-header-right">
+            <div class="session-status">
+              <span id="connectionStatus" class="status-indicator">• Connected</span>
+            </div>
+          </div>
+        </div>
+
+        <h1 class="page-title">Feedback Coach</h1>
+        
+        <!-- Coach Mode Selection -->
+        <div class="coach-mode-selection" id="coachModeSelection">
+          <div class="mode-cards">
+            <div class="mode-card" id="joinSessionCard">
+              <h2 class="mode-title">Join Session</h2>
+              <p class="mode-description">Join an existing session as feedback coach</p>
+              <div class="join-input-group">
+                <input 
+                  type="text" 
+                  id="coachJoinKeyInput" 
+                  class="input-field" 
+                  placeholder="Enter session code"
+                  autocomplete="off"
+                />
+                <button id="joinSessionButton" class="btn btn-primary">
+                  <span class="btn-text">Join</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="coach-dashboard hidden" id="coachDashboard">
+          <!-- Feedback Section - Full Width -->
+          <div class="feedback-section feedback-section-full">
+            <div class="dashboard-panel feedback-panel">
+              <label class="panel-label">Feedback</label>
+              <div id="feedbackButtons" class="feedback-buttons">
+                <p class="no-exercise-message">Waiting for exercise to be selected...</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <script type="module" src="/coach-feedback.js"></script>
+  </body>
+</html>
+

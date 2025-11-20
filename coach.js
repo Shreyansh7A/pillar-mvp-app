@@ -40,6 +40,9 @@ let feedbackQueue = [];
 let sessionDoc = null; // Session document in 'sessions' collection
 let exerciseSetsCollection = null; // Subcollection for exercise sets
 let setStartTime = null; // Timestamp when current set started
+let isJoiningExistingSession = false; // Flag to track if coach is joining existing session
+let coachId = null; // Unique ID for this coach instance
+let coachesCollection = null; // Subcollection to track active coaches
 
 // Exercise-specific feedback
 const exerciseFeedback = {
@@ -118,6 +121,12 @@ const exerciseFeedback = {
 };
 
 // HTML elements
+const coachModeSelection = document.getElementById('coachModeSelection');
+const createSessionCard = document.getElementById('createSessionCard');
+const joinSessionCard = document.getElementById('joinSessionCard');
+const createSessionButton = document.getElementById('createSessionButton');
+const joinSessionButton = document.getElementById('joinSessionButton');
+const coachJoinKeyInput = document.getElementById('coachJoinKeyInput');
 const startButton = document.getElementById('startButtonHeader'); // Use header button
 const hangupButton = document.getElementById('hangupButtonHeader'); // Use header button for consistency
 const hangupButtonHeader = hangupButton; // Alias for consistency
@@ -183,10 +192,14 @@ function initPeerConnection() {
   };
 }
 
-// Start session
-startButton.onclick = async () => {
+// Create new session (original flow)
+async function startNewSession() {
   try {
     showStatus('Starting session...', 'info');
+    isJoiningExistingSession = false;
+    
+    // Generate unique coach ID
+    coachId = `coach_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     
     // Initialize peer connection (coach doesn't need camera)
     initPeerConnection();
@@ -195,6 +208,7 @@ startButton.onclick = async () => {
     callDoc = firestore.collection('calls').doc();
     const offerCandidates = callDoc.collection('offerCandidates');
     const answerCandidates = callDoc.collection('answerCandidates');
+    coachesCollection = callDoc.collection('coaches');
 
     // Create session document for data storage (use same ID as callDoc for linking)
     sessionDoc = firestore.collection('sessions').doc(callDoc.id);
@@ -218,17 +232,23 @@ startButton.onclick = async () => {
     // Initialize feedback collection
     feedbackCollection = callDoc.collection('feedback');
     
-          // Show dashboard
-          coachDashboard.classList.remove('hidden');
-          document.querySelector('.page-title').style.display = 'none';
-          
-          // Hide start button, show end button
-          if (startButton) {
-            startButton.classList.add('hidden');
-          }
-          if (hangupButtonHeader) {
-            hangupButtonHeader.classList.remove('hidden');
-          }
+    // Add this coach to the coaches collection
+    await coachesCollection.doc(coachId).set({
+      coachId: coachId,
+      joinedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      isActive: true
+    });
+    
+    // Listen for other coaches joining/leaving
+    setupCoachesListener();
+    
+    // Hide start button, show end button
+    if (startButton) {
+      startButton.classList.add('hidden');
+    }
+    if (hangupButtonHeader) {
+      hangupButtonHeader.classList.remove('hidden');
+    }
 
     // Get candidates for caller, save to db
     pc.onicecandidate = (event) => {
@@ -246,16 +266,71 @@ startButton.onclick = async () => {
 
     await callDoc.set({ offer });
     
+    // Hide mode selection, show dashboard
+    coachModeSelection.classList.add('hidden');
+    coachDashboard.classList.remove('hidden');
+    document.querySelector('.page-title').style.display = 'none';
+    
     showStatus('Waiting for client to join...', 'info');
 
-    // Listen for remote answer
+    // Listen for remote answer and session data updates
     callDoc.onSnapshot((snapshot) => {
       const data = snapshot.data();
+      if (!data) return;
+      
+      // Handle client answer for WebRTC connection
       if (!pc.currentRemoteDescription && data?.answer) {
         const answerDescription = new RTCSessionDescription(data.answer);
         pc.setRemoteDescription(answerDescription);
         showStatus('Client joined successfully', 'success');
         updateConnectionStatus(true);
+      }
+      
+      // Update rep count (sync from other coach)
+      if (data.repCount !== undefined && data.repCount !== repCount) {
+        repCount = data.repCount;
+        repCountDisplay.textContent = repCount;
+      }
+      
+      // Update exercise (sync from other coach)
+      if (data.currentExercise) {
+        const exerciseNames = {
+          'lat-pulldown': 'Lat Pulldown',
+          'deadlift': 'Deadlift'
+        };
+        const exerciseValue = Object.keys(exerciseNames).find(
+          key => exerciseNames[key] === data.currentExercise
+        );
+        if (exerciseValue && exerciseSelect.value !== exerciseValue) {
+          exerciseSelect.value = exerciseValue;
+          updateFeedbackButtons(exerciseValue);
+        }
+      }
+      
+      // Update set status (sync from other coach)
+      // Remove setStatusUpdated check to ensure updates are processed
+      if (data.setStatus) {
+        if (data.setStatus === 'started' && !isSetActive) {
+          console.log('Set started by other coach, updating UI');
+          isSetActive = true;
+          setStartTime = new Date();
+          startSetButton.classList.add('hidden');
+          endSetButton.classList.remove('hidden');
+          incrementRep.disabled = false;
+          decrementRep.disabled = false;
+          feedbackQueue = []; // Clear queue when set starts
+          // Reset rep count to 0 when set starts (from other coach)
+          repCount = 0;
+          repCountDisplay.textContent = '0';
+        } else if (data.setStatus === 'ended' && isSetActive) {
+          console.log('Set ended by other coach, updating UI');
+          isSetActive = false;
+          startSetButton.classList.remove('hidden');
+          endSetButton.classList.add('hidden');
+          incrementRep.disabled = true;
+          decrementRep.disabled = true;
+          feedbackQueue = [];
+        }
       }
     });
 
@@ -282,7 +357,218 @@ startButton.onclick = async () => {
 // Copy join key - functionality moved to session code display if needed
 // Can be added later if copy functionality is required
 
+// Set up button click handlers
+if (createSessionButton) {
+  createSessionButton.onclick = async () => {
+    await startNewSession();
+  };
+}
+
+if (joinSessionButton) {
+  joinSessionButton.onclick = async () => {
+    const joinKey = coachJoinKeyInput.value.trim();
+    if (!joinKey) {
+      showStatus('Please enter a session code', 'error');
+      return;
+    }
+    await joinExistingSession(joinKey);
+  };
+}
+
+// Allow Enter key to join session
+if (coachJoinKeyInput) {
+  coachJoinKeyInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter' && joinSessionButton) {
+      joinSessionButton.click();
+    }
+  });
+}
+
 // Hangup
+// Join existing session as second coach
+async function joinExistingSession(joinKey) {
+  try {
+    showStatus('Joining session...', 'info');
+    isJoiningExistingSession = true;
+    
+    // Generate unique coach ID
+    coachId = `coach_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    
+    // Reference existing call document
+    callDoc = firestore.collection('calls').doc(joinKey);
+    
+    // Check if session exists
+    const callData = await callDoc.get();
+    if (!callData.exists) {
+      showStatus('Session not found. Please check the session code.', 'error');
+      return;
+    }
+    
+    // Initialize peer connection
+    initPeerConnection();
+    
+    // Get collections
+    const offerCandidates = callDoc.collection('offerCandidates');
+    const answerCandidates = callDoc.collection('answerCandidates');
+    coachesCollection = callDoc.collection('coaches');
+    feedbackCollection = callDoc.collection('feedback');
+    
+    // Add this coach to the coaches collection
+    await coachesCollection.doc(coachId).set({
+      coachId: coachId,
+      joinedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      isActive: true
+    });
+    
+    // Listen for other coaches
+    setupCoachesListener();
+    
+    // Reference session document
+    sessionDoc = firestore.collection('sessions').doc(joinKey);
+    exerciseSetsCollection = sessionDoc.collection('exerciseSets');
+    
+    // Display session code
+    sessionCodeDisplay.textContent = joinKey;
+    sessionHeader.classList.remove('hidden');
+    
+    // Hide mode selection, show dashboard
+    coachModeSelection.classList.add('hidden');
+    coachDashboard.classList.remove('hidden');
+    document.querySelector('.page-title').style.display = 'none';
+    
+    // Hide start button, show end button
+    if (startButton) {
+      startButton.classList.add('hidden');
+    }
+    if (hangupButtonHeader) {
+      hangupButtonHeader.classList.remove('hidden');
+    }
+    
+    // Listen for client connection and create offer for second coach
+    callDoc.onSnapshot(async (snapshot) => {
+      const data = snapshot.data();
+      if (!data) return;
+      
+      // If client is already connected (has answer) and we haven't created our offer yet
+      if (data.answer && !pc.currentRemoteDescription && !data.offer2) {
+        // Create offer for second coach
+        pc.onicecandidate = (event) => {
+          event.candidate && offerCandidates.add(event.candidate.toJSON());
+        };
+        
+        const offerDescription = await pc.createOffer();
+        await pc.setLocalDescription(offerDescription);
+        
+        const offer = {
+          sdp: offerDescription.sdp,
+          type: offerDescription.type,
+        };
+        
+        // Add second offer for this coach
+        await callDoc.update({ 
+          offer2: offer,
+          coach2Id: coachId
+        });
+      }
+      
+      // If client has answered our offer (answer2 exists)
+      if (data.answer2 && !pc.currentRemoteDescription) {
+        const answer2Description = new RTCSessionDescription(data.answer2);
+        await pc.setRemoteDescription(answer2Description);
+        showStatus('Connected to client', 'success');
+        updateConnectionStatus(true);
+      }
+    });
+    
+    // Listen for answer candidates from client
+    answerCandidates.onSnapshot((snapshot) => {
+      snapshot.docChanges().forEach((change) => {
+        if (change.type === 'added') {
+          const candidate = new RTCIceCandidate(change.doc.data());
+          pc.addIceCandidate(candidate);
+        }
+      });
+    });
+    
+    // Listen for offer candidates (from first coach or client)
+    offerCandidates.onSnapshot((snapshot) => {
+      snapshot.docChanges().forEach((change) => {
+        if (change.type === 'added') {
+          const candidate = new RTCIceCandidate(change.doc.data());
+          pc.addIceCandidate(candidate);
+        }
+      });
+    });
+    
+    // Listen for session data (rep count, exercise, etc.)
+    callDoc.onSnapshot((snapshot) => {
+      const data = snapshot.data();
+      if (!data) return;
+      
+      // Update rep count
+      if (data.repCount !== undefined && data.repCount !== repCount) {
+        repCount = data.repCount;
+        repCountDisplay.textContent = repCount;
+      }
+      
+      // Update exercise
+      if (data.currentExercise) {
+        const exerciseValue = Object.keys(exerciseNames).find(
+          key => exerciseNames[key] === data.currentExercise
+        );
+        if (exerciseValue) {
+          exerciseSelect.value = exerciseValue;
+          updateFeedbackButtons(exerciseValue);
+        }
+      }
+      
+      // Update set status (sync from other coach)
+      // Remove setStatusUpdated check to ensure updates are processed
+      if (data.setStatus) {
+        if (data.setStatus === 'started' && !isSetActive) {
+          console.log('Set started by other coach, updating UI');
+          isSetActive = true;
+          setStartTime = new Date();
+          startSetButton.classList.add('hidden');
+          endSetButton.classList.remove('hidden');
+          incrementRep.disabled = false;
+          decrementRep.disabled = false;
+          feedbackQueue = []; // Clear queue when set starts
+          // Reset rep count to 0 when set starts (from other coach)
+          repCount = 0;
+          repCountDisplay.textContent = '0';
+        } else if (data.setStatus === 'ended' && isSetActive) {
+          console.log('Set ended by other coach, updating UI');
+          isSetActive = false;
+          startSetButton.classList.remove('hidden');
+          endSetButton.classList.add('hidden');
+          incrementRep.disabled = true;
+          decrementRep.disabled = true;
+          feedbackQueue = [];
+        }
+      }
+    });
+    
+    showStatus('Connected to session', 'success');
+    updateConnectionStatus(true);
+    
+  } catch (error) {
+    console.error('Error joining session:', error);
+    showStatus('Failed to join session', 'error');
+  }
+}
+
+// Setup listener for active coaches
+function setupCoachesListener() {
+  if (!coachesCollection) return;
+  
+  coachesCollection.onSnapshot((snapshot) => {
+    const activeCoaches = snapshot.docs.length;
+    // Could display this in UI if needed, but keeping it hidden from client
+    console.log(`Active coaches in session: ${activeCoaches}`);
+  });
+}
+
 hangupButton.onclick = async () => {
   // End session in Firestore
   if (sessionDoc) {
@@ -548,6 +834,14 @@ decrementRep.addEventListener('click', () => {
 
 // Start set button
 startSetButton.addEventListener('click', () => {
+  // Only allow starting if not already active (prevent duplicate starts)
+  if (isSetActive) {
+    console.log('Set already active, ignoring start request');
+    return;
+  }
+  
+  console.log('Starting set - updating Firestore');
+  
   // Reset rep counter
   repCount = 0;
   repCountDisplay.textContent = '0';
@@ -559,12 +853,17 @@ startSetButton.addEventListener('click', () => {
   setStartTime = new Date(); // Track when set started
   
   // Clear summary on client side and notify set start
+  // Use set() with merge to ensure the update happens
   if (callDoc) {
-    callDoc.update({
+    callDoc.set({
       setSummary: [],
       summaryUpdated: firebase.firestore.FieldValue.serverTimestamp(),
       setStatus: 'started',
       setStatusUpdated: firebase.firestore.FieldValue.serverTimestamp()
+    }, { merge: true }).then(() => {
+      console.log('Set status updated to started in Firestore');
+    }).catch((error) => {
+      console.error('Error updating set status:', error);
     });
   }
   
@@ -604,11 +903,15 @@ endSetButton.addEventListener('click', async () => {
   const summary = coachFeedback;
   
   if (callDoc) {
-    callDoc.update({
+    callDoc.set({
       setSummary: summary,
       summaryUpdated: firebase.firestore.FieldValue.serverTimestamp(),
       setStatus: 'ended',
       setStatusUpdated: firebase.firestore.FieldValue.serverTimestamp()
+    }, { merge: true }).then(() => {
+      console.log('Set status updated to ended in Firestore');
+    }).catch((error) => {
+      console.error('Error updating set status:', error);
     });
   }
   

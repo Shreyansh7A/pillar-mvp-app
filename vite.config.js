@@ -14,6 +14,8 @@ export default defineConfig({
       input: {
         main: path.resolve(__dirname, 'index.html'),
         coach: path.resolve(__dirname, 'coach.html'),
+        'coach-stream': path.resolve(__dirname, 'coach-stream.html'),
+        'coach-feedback': path.resolve(__dirname, 'coach-feedback.html'),
         client: path.resolve(__dirname, 'client.html'),
         summary: path.resolve(__dirname, 'summary.html'),
       },
